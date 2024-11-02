@@ -1,0 +1,7 @@
+pandas
+pyodbc
+#apache-airflow-providers-mssql==3.2.1
+paramiko
+slack_sdk
+pydomo
+openpyxl

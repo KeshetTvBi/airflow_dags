@@ -1,0 +1,92 @@
+version: '3'
+x-airflow-common:
+  &airflow-common
+  # Airflow Webserver
+  image: airflow_infra:latest
+  environment:
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__FERNET_KEY: ""
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
+    AIRFLOW__WEBSERVER__WORKER_REFRESH_INTERVAL: '60'
+  volumes:
+    - dags_volume:/opt/airflow/dags  # DAGs from airflow_dag container
+    - airflow_logs:/opt/airflow/logs
+  depends_on:
+    - redis
+    - postgres
+
+services:
+  # Dags Service
+  dags:
+    image: airflow_dags:latest
+    volumes:
+      - dags_volume:/opt/airflow/dags
+    command: [ "sleep", "infinity" ]  # Keeps the container running to serve DAGs
+
+  # Redis Service
+  redis:
+    image: redis:latest
+    command: redis-server --save 60 1 --loglevel warning
+    expose:
+      - 6379
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+      timeout: 5s
+
+  # Postgres Service
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "airflow" ]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+      timeout: 5s
+
+  # Airflow Webserver
+  webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "http://localhost:8080/health" ]
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      timeout: 30s
+
+  # Airflow Scheduler
+  scheduler:
+    <<: *airflow-common
+    command: ["scheduler"]
+
+ # Airflow Worker
+  worker:
+    <<: *airflow-common
+    command: [ "celery", "worker" ]
+
+  # Database Initialization Service
+  init:
+    <<: *airflow-common
+    command: bash -c "airflow db upgrade; airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com"
+    restart: "no"
+
+volumes:
+  airflow_logs:
+  dags_volume:
+  postgres_data:
