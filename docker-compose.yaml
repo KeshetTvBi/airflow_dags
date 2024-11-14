@@ -2,7 +2,7 @@ version: '3'
 x-airflow-common:
   &airflow-common
   # Airflow Webserver
-  image: airflow_infra:latest
+  image: airflow-infra:latest
   environment:
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__CORE__FERNET_KEY: ""
@@ -16,6 +16,7 @@ x-airflow-common:
   volumes:
     - dags_volume:/opt/airflow/dags  # DAGs from airflow_dag container
     - airflow_logs:/opt/airflow/logs
+    - ./dags:/opt/airflow/dags # DAGs from local dir
   depends_on:
     - redis
     - postgres
@@ -23,7 +24,7 @@ x-airflow-common:
 services:
   # Dags Service
   dags:
-    image: airflow_dags:latest
+    image: airflow-dags:latest
     volumes:
       - dags_volume:/opt/airflow/dags
     command: [ "sleep", "infinity" ]  # Keeps the container running to serve DAGs
