@@ -4,6 +4,7 @@ x-airflow-common:
   # Airflow Webserver
   image: airflow-infra:latest
   environment:
+    ENV: dev
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__CORE__FERNET_KEY: ""
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false'

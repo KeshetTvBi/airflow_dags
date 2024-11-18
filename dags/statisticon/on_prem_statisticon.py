@@ -15,17 +15,7 @@ import csv
 import json
 
 
-# SSH connection details
-# ssh_host = '10.0.4.16'
-# ssh_user = 'tal.ugashi'
-# ssh_password = '****'
-# ssh_port = 22
-
-# SQL Server connection details
-# remote_bind_host = 'wemdb02.keshet.prd'
-# remote_bind_port = 1433
-# local_bind_port = 14330  # Local port for SSH tunneling
-# db_password = os.getenv('SQLSERVER_PASSWORD')
+env = os.getenv('ENV')
 
 default_args = {
     'owner': 'airflow',
@@ -47,87 +37,54 @@ def send_slack_error_notification(context):
         print(f"Error sending Slack message: {e.response['error']}")
 
 
-# Create SSH tunnel
-# def create_ssh_tunnel():
-#     client = paramiko.SSHClient()
-#     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-#     client.connect(ssh_host, username=ssh_user, password=ssh_password, port=ssh_port)
-#
-#     transport = client.get_transport()
-#     local_forward = transport.open_channel(
-#         'direct-tcpip',
-#         (remote_bind_host, remote_bind_port),
-#         ('localhost', local_bind_port)
-#     )
-#
-#     return client, local_forward
-
 def extract_data(**kwargs):
-    # ssh_client, tunnel = create_ssh_tunnel()
-
     try:
-        # Give the tunnel some time to establish
-        time.sleep(2)
-
         # MsSqlHook connection parameters
         mssql_hook = MsSqlHook(
             mssql_conn_id='makoDB_Enrichment',
-            # host=remote_bind_host,
-            # port=remote_bind_port,
-            schema='KNM_PRD',
-            # login='enricher_user',
-            # password=db_password,
+            schema='KNM_PRD'
         )
 
-        # Test connection or run queries
-        conn = mssql_hook.get_conn()
-        cursor = conn.cursor()
-        cursor.execute('select * from UrlClickCounters')
-        rows = cursor.fetchall()
-        # print(f"Query result: {rows}")
+        engine = mssql_hook.get_sqlalchemy_engine()
 
-        # Convert rows to a list of dictionaries
-        data = [dict(zip([col[0] for col in cursor.description], row)) for row in rows]
+        ### Full Version ###
+        sql_full_path = 'dags/statisticon/queries/full_version.sql'
 
-        # Specify the CSV file name
-        filename = 'dags/statisticon/tmp/result.csv'
+        with open(sql_full_path, 'r') as file:
+            sql_query = file.read()
 
-        # Write to CSV
-        with open(filename, "w", newline="") as file:
-            # Extract field names from the first dictionary
-            fieldnames = data[0].keys()
+        df = pd.read_sql(sql_query, engine)
+        df.to_csv('dags/statisticon/tmp/full_version.csv', index=False)
 
-            writer = csv.DictWriter(file, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(data)
+        ### Reset Version ###
+        sql_reset_path = 'dags/statisticon/queries/reset_version.sql'
+
+        with open(sql_reset_path, 'r') as file:
+            sql_query = file.read()
+
+        df = pd.read_sql(sql_query, engine)
+        df.to_csv('dags/statisticon/tmp/reset_version.csv', index=False)
 
     except Exception as e:
         print(f'An unexpected error occurred: {e}')
-    # finally:
-        # Close SSH tunnel
-        # tunnel.close()
-        # ssh_client.close()
 
 
 def transform_data(**kwargs):
-    # Pull the query result from XCom
-    # query_result = kwargs['ti'].xcom_pull(task_ids='query_sql_server', key='query_result')
+    df_full = pd.read_csv('dags/statisticon/tmp/full_version.csv')
+    df_reset = pd.read_csv('dags/statisticon/tmp/reset_version.csv')
 
-    # ti = kwargs['ti']
-    # data = ti.xcom_pull(task_ids='extract_data')
-    # df = pd.DataFrame(data)
-    df = pd.read_csv('dags/statisticon/tmp/result.csv')
+    df_full['FirstClickTimestamp'] = df_full['FirstClickTimestamp'].str.replace(r'\.\d+', '', regex=True)
+    df_full['FirstClickTimestamp'] = pd.to_datetime(df_full['FirstClickTimestamp'])
 
-    df['FirstClickTimestamp'] = df['FirstClickTimestamp'].str.replace(r'\.\d+', '', regex=True)
-    df['FirstClickTimestamp'] = pd.to_datetime(df['FirstClickTimestamp'])
-    # df['LastClickTimestamp'] = df['LastClickTimestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
-    # df['MaxAvgTimestamp'] = df['MaxAvgTimestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
+    df_reset['FirstClickTimestamp'] = df_reset['FirstClickTimestamp'].str.replace(r'\.\d+', '', regex=True)
+    df_reset['FirstClickTimestamp'] = pd.to_datetime(df_reset['FirstClickTimestamp'])
 
     today = pd.Timestamp.now(tz='Asia/Jerusalem').floor('S').tz_localize(None)
     two_days_ago = today - pd.Timedelta(days=2)
 
     # Filter the DataFrame for the last two days
-    df = df[(df['FirstClickTimestamp'] >= two_days_ago)]
+    df_full = df_full[(df_full['FirstClickTimestamp'] >= two_days_ago)]
+    df_reset = df_reset[(df_reset['FirstClickTimestamp'] >= two_days_ago)]
 
     def process_url(url):
         # Extract the URL up to '?'
@@ -140,69 +97,42 @@ def transform_data(**kwargs):
 
         return pd.Series([friendly_url, p_id])
 
-    # Due to reset URL is not unique, so I'll group by DF
-    # group_columns = [col for col in df.columns if col not in ['FirstClickTimestamp', 'LastClickTimestamp', 'MaxMinuteAvg',
-    #                                                           'ClickCounter', 'TotalCountWeb', 'TotalCountMobile',
-    #                                                           'TotalCountMobileApp', 'TotalCountWinApp']]
-
-    df_grouped = df.groupby('URL').agg({'FirstClickTimestamp': 'min', 'LastClickTimestamp': 'max', 'MaxMinuteAvg': 'max',
+    df_full_grouped = df_full.groupby('URL').agg({'FirstClickTimestamp': 'min', 'LastClickTimestamp': 'max', 'MaxMinuteAvg': 'max',
                                         'ClickCounter': 'sum', 'TotalCountWeb': 'sum', 'TotalCountMobile': 'sum',
                                         'TotalCountMobileApp': 'sum', 'TotalCountWinApp': 'sum'}).reset_index()
-    print("Number of rows df_grouped:", len(df_grouped))
-    df_dims = df[['URL', 'LastClickTimestamp', 'ID', 'URLHashCode', 'MaxAvgTimestamp', 'Channel', 'PortletId']]
 
-    df = pd.merge(df_grouped, df_dims, how='left', on=['URL', 'LastClickTimestamp'])
-    print("Number of rows df:", len(df))
+    df_full_dims = df_full[['URL', 'LastClickTimestamp', 'ID', 'URLHashCode', 'MaxAvgTimestamp', 'Channel', 'PortletId']]
+
+    df_full = pd.merge(df_full_grouped, df_full_dims, how='left', on=['URL', 'LastClickTimestamp'])
+
     # Apply the function to the 'URL' column
-    df[['friendly_url', 'p_id']] = df['URL'].apply(process_url)
+    df_full[['friendly_url', 'p_id']] = df_full['URL'].apply(process_url)
+    df_reset[['friendly_url', 'p_id']] = df_reset['URL'].apply(process_url)
 
     col_order = ['ID', 'URL', 'Channel', 'FirstClickTimestamp', 'LastClickTimestamp', 'MaxMinuteAvg', 'MaxAvgTimestamp',
                  'ClickCounter', 'PortletId', 'URLHashCode', 'TotalCountWeb', 'TotalCountMobile', 'TotalCountMobileApp',
                  'TotalCountWinApp', 'friendly_url', 'p_id']
 
-    df = df[col_order]
+    df_full = df_full[col_order]
+    df_reset = df_reset[col_order]
 
-    df.to_csv('dags/statisticon/tmp/output.csv',  index=False)
+    df_full.to_csv('dags/statisticon/tmp/full_version_output.csv',  index=False)
+    df_reset.to_csv('dags/statisticon/tmp/reset_version_output.csv', index=False)
 
 
 def csv_to_domo():
-    # subprocess.run(['java', '-jar', 'domoUtil.jar', '-s', 'pushscript.script'], cwd='/opt/airflow/dags/statisticon')
-
-    # Prod
-    subprocess.run(['java', '-jar', '/home/domoUtil/domoUtil.jar', '-s', 'dags/statisticon/pushscript.script'])
-
-
-
-# def get_streamid_domo():
-#     subprocess.run(['java', '-jar', 'domoUtil.jar', '-s', 'get_streamid.script'], cwd='/opt/airflow/dags/statisticon')
-
-    # Prod
-    # subprocess.run(['java', '-jar', '/home/domoUtil/domoUtil.jar', '-s', 'dags/statisticon/pushscript.script'])
-
-
-# def extract_streamid(**kwargs):
-#     with open('dags/statisticon/tmp/dataset.json', 'r') as file:
-#         data = json.load(file)
-#
-#     stream_id = data.get('streamId')
-#
-#     if stream_id:
-#         print('Stream ID:', stream_id)
-#
-#     else:
-#         print("'streamId' key not found in the JSON data.")
-#
-#     kwargs['ti'].xcom_push(key='statisticon_streamid', value=stream_id)
+    if env == 'dev':
+        subprocess.run(['java', '-jar', 'domoUtil.jar', '-s', 'pushscript_dev.script'], cwd='/opt/airflow/dags/statisticon')
+    else:
+        subprocess.run(['java', '-jar', '/home/domoUtil/domoUtil.jar', '-s', 'dags/statisticon/pushscript.script'])
 
 
 def run_dataset_domo(**kwargs):
-    # streamid = kwargs['ti'].xcom_pull(task_ids='extract_streamid', key='statisticon_streamid')
-
-    # subprocess.run(['java', '-jar', 'domoUtil.jar', '-s', 'run_dataset.script'],
-    #                cwd='/opt/airflow/dags/statisticon')
-
-    # Prod
-    subprocess.run(['java', '-jar', '/home/domoUtil/domoUtil.jar', '-s', 'dags/statisticon/run_dataset.script'])
+    if env == 'dev':
+        subprocess.run(['java', '-jar', 'domoUtil.jar', '-s', 'run_dataset.script'],
+                       cwd='/opt/airflow/dags/statisticon')
+    else:
+        subprocess.run(['java', '-jar', '/home/domoUtil/domoUtil.jar', '-s', 'dags/statisticon/run_dataset.script'])
 
 def cleanup_files():
     print(f'Remove all files from the temporary directory')
@@ -215,12 +145,13 @@ def cleanup_files():
         print(f'Directory {tmp_path} does not exist')
 
 
-with DAG(
+with (DAG(
          dag_id='statisticon',
          default_args=default_args,
-         schedule_interval='*/3 * * * *',
+         # schedule_interval='*/3 * * * *',
+         schedule_interval=None,
          catchup=False
-)  as dag:
+)  as dag):
 
     # Task to read the CSV file
     extract_data_task = PythonOperator(
@@ -265,12 +196,11 @@ with DAG(
     #     # on_failure_callback=send_slack_error_notification
     # )
 
-    cleanup_files_task = PythonOperator(
-        task_id='cleanup_files',
-        python_callable=cleanup_files
-    )
+    # cleanup_files_task = PythonOperator(
+    #     task_id='cleanup_files',
+    #     python_callable=cleanup_files
+    # )
 
     # Define task dependencies
-    extract_data_task >> transform_data_task >> csv_to_domo_task >> run_dataset_domo_task >> cleanup_files_task
-
-    # get_streamid_domo_task >> extract_streamid_task >> run_dataset_domo_task >> cleanup_files_task
+    extract_data_task >> transform_data_task >> csv_to_domo_task >> run_dataset_domo_task
+    # >> cleanup_files_task
