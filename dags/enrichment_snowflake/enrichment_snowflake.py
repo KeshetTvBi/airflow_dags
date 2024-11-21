@@ -2,17 +2,10 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 import pandas as pd
-import re
 from airflow.providers.microsoft.mssql.hooks.mssql import MsSqlHook
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
-from sqlalchemy import create_engine
-import time
-import subprocess
-from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
-import os
-import shutil
-import csv
+from pathlib import Path
+
 
 
 default_args = {
@@ -21,60 +14,106 @@ default_args = {
     'retries': 1
 }
 
-def extract_data(**kwargs):
-    try:
-        mssql_hook = MsSqlHook(
-            mssql_conn_id='makoDB_Enrichment',
-            schema='vcmcon',
-        )
+try:
+    mssql_hook = MsSqlHook(
+        mssql_conn_id='makoDB_Enrichment',
+        schema='vcmcon',
+    )
 
-        engine = mssql_hook.get_sqlalchemy_engine()
+    engine = mssql_hook.get_sqlalchemy_engine()
 
-        sql_file_path = 'dags/enrichment_snowflake/queries/articles.sql'
-
-        with open(sql_file_path, 'r') as file:
-            sql_query = file.read()
-
-        df = pd.read_sql(sql_query, engine)
-        df.to_csv('dags/enrichment_snowflake/outputs/articles.csv', index=False)
-
-    except Exception as e:
+except Exception as e:
         print(f'An unexpected error occurred: {e}')
 
 
-def insert_into_snowflake(filepath, table):
+def extract_start_time(**kwargs):
+    sql_file_path = 'dags/enrichment_snowflake/queries/start_time.sql'
+
+    with open(sql_file_path, 'r') as file:
+        sql_query = file.read()
+
+    df = pd.read_sql(sql_query, engine)
+
+    start_time = str(df.iloc[0, 0])
+    kwargs['ti'].xcom_push(key='es_start_time', value=start_time)
+
+def extract_main_tables(tables, **kwargs):
+    start_time = kwargs['ti'].xcom_pull(task_ids='extract_start_time', key='es_start_time')
+
+    sql_file_path = 'dags/enrichment_snowflake/queries/main_tables.sql'
+
+    for table in tables:
+        with open(sql_file_path, 'r') as file:
+            sql_query = file.read().format(timestamp=start_time, table_name=table)
+
+        df = pd.read_sql(sql_query, engine)
+        df.to_csv(f'dags/enrichment_snowflake/outputs/{table}.csv', index=False)
+
+def extract_fulfil_tables(tables, **kwargs):
+    start_time = kwargs['ti'].xcom_pull(task_ids='extract_start_time', key='es_start_time')
+
+    for table in tables:
+        sql_file_path = f'dags/enrichment_snowflake/queries/{table}.sql'
+        with open(sql_file_path, 'r') as file:
+            sql_query = file.read().format(timestamp=start_time)
+
+        df = pd.read_sql(sql_query, engine)
+        df.to_csv(f'dags/enrichment_snowflake/outputs/TB_{table}.csv', index=False)
+
+
+def insert_into_snowflake():
     snowflake_conn = SnowflakeHook(
         snowflake_conn_id='mako_snowflake',
         schema='ENRICHMENT'
     )
     conn = snowflake_conn.get_conn()
 
-    with conn.cursor() as cur:
-        # PUT the CSV file to Snowflake stage
-        put_query = f'PUT file://{filepath} @ENRICHMENT_STAGE/{table}'
-        cur.execute(put_query)
+    directory = Path('dags/enrichment_snowflake/outputs')
+    output_files = [file.stem for file in directory.glob('*.csv')]
+    print(f'output_files--------- {output_files}')
+    for table in output_files:
+        with conn.cursor() as cur:
+            # PUT the CSV file to Snowflake stage
+            put_query = f'PUT file://{directory}/{table}.csv @ENRICHMENT_STAGE/{table}'
+            cur.execute(put_query)
 
-        # COPY INTO command to load CSV data into Snowflake table
-        copy_query = f'''
-                        COPY INTO {table}
-                        FROM @ENRICHMENT_STAGE/{table}
-                        FILE_FORMAT = (TYPE = 'CSV', FIELD_OPTIONALLY_ENCLOSED_BY = '"', SKIP_HEADER = 1);
-                      '''
-        cur.execute(copy_query)
+            # COPY INTO command to load CSV data into Snowflake table
+            copy_query = f'''
+                            COPY INTO {table}
+                            FROM @ENRICHMENT_STAGE/{table}
+                            FILE_FORMAT = (TYPE = 'CSV', FIELD_OPTIONALLY_ENCLOSED_BY = '"', SKIP_HEADER = 1);
+                          '''
+            cur.execute(copy_query)
 
-        cur.execute(f"rm @ENRICHMENT_STAGE/{table}")
+            cur.execute(f"rm @ENRICHMENT_STAGE/{table}")
 
-with DAG(
+with (DAG(
          dag_id='enrichment_snowflake',
          default_args=default_args,
          schedule_interval=None,
          catchup=False
-)  as dag:
+)  as dag):
 
-    # Task to read the CSV file
-    extract_data_task = PythonOperator(
-        task_id='extract_data',
-        python_callable=extract_data,
+    extract_start_time_task = PythonOperator(
+        task_id='extract_start_time',
+        python_callable=extract_start_time,
+        provide_context=True,
+        # on_failure_callback=send_slack_error_notification
+    )
+
+    extract_main_tables_task = PythonOperator(
+        task_id='extract_main_tables',
+        python_callable=extract_main_tables,
+        op_args=[['TB_Articles', 'TB_Videos', 'TB_Recipes']],
+        provide_context=True,
+        # on_failure_callback=send_slack_error_notification
+    )
+
+    extract_fulfil_tables_task = PythonOperator(
+        task_id='extract_fulfil_tables',
+        python_callable=extract_fulfil_tables,
+        op_args=[['forums_summary', 'votes_summary', 'furl', 'item_channel', 'publish_info', 'record_id', 'video_duration',
+                  'vod_attribute', 'votes_summary']],
         provide_context=True,
         # on_failure_callback=send_slack_error_notification
     )
@@ -82,8 +121,8 @@ with DAG(
     insert_into_snowflake_task = PythonOperator(
         task_id='insert_into_snowflake',
         python_callable=insert_into_snowflake,
-        op_args=['dags/enrichment_snowflake/outputs/articles.csv', 'articles'],
+        # op_args=['dags/enrichment_snowflake/outputs', ['TB_Articles', 'TB_Videos', 'TB_Recipes']],
         provide_context=True,
     )
 
-    extract_data_task >> insert_into_snowflake_task
+    extract_start_time_task >> [extract_main_tables_task, extract_fulfil_tables_task] >> insert_into_snowflake_task
