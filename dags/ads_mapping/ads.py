@@ -33,7 +33,7 @@ default_args = {
 SNOWFLAKE_CONN_ID = 'mako_snowflake'
 
 domo = Domo(Variable.get('domoKey'), Variable.get('domoSecret'), api_host='api.domo.com')
-dataset_id = 'af39caa3-5ff0-4549-9963-bd5cc69e6ba0'
+dataset_id = '98293c3a-878d-4b29-9ebf-23a80bbc377f'
 
 g_client = graph_client(Variable.get('graph_client_id'),Variable.get('graph_client_secret') ,Variable.get('graph_tennet_id'))
 
@@ -69,16 +69,16 @@ def push_to_snowflake(**kwargs):
 
     try:
         # First, delete the existing data from the table
-        delete_query = 'DELETE FROM domo_ads;'
+        delete_query = 'DELETE FROM ads_mapping;'
         snowflake_hook.run(delete_query)
         logging.info('Existing data deleted from Snowflake')
 
         values = ', '.join(
-            f"('{data['component_id']}', '{data['events_reporting_id']}', '{data['name']}', '{data['type']}', '{data['remarks']}')" for data in data_list
+            f"('{data['component_id']}', '{data['events_reporting_id']}', '{data['name']}', '{data['type']}', '{data['sub_type']}', '{data['remarks']}')" for data in data_list
         )
 
         query = f'''
-                    INSERT INTO domo_ads (component_id, events_reporting_id, name, type, remarks)
+                    INSERT INTO ads_mapping (component_id, events_reporting_id, name, type, sub_type, remarks)
                     VALUES {values};
                 '''
         snowflake_hook.run(query)
@@ -104,10 +104,6 @@ def push_to_domo(**kwargs):
         log.error(f'Key error occurred: {e}')
         raise
 
-    except domo.DomoError as e:
-        log.error(f'Error retrieving dataset from Domo: {e}')
-        raise
-
     except Exception as e:
         log.error(f'An unexpected error occurred: {e}')
         raise
@@ -129,15 +125,15 @@ def push_to_sqlserver(**kwargs):
         # cursor = conn.cursor()
 
         # Truncate the table
-        truncate_query = "TRUNCATE TABLE DomoAds;"
+        truncate_query = "TRUNCATE TABLE AdsMapping;"
         mssql_hook.run(truncate_query)
 
         values = ', '.join(
-            f"('{data['component_id']}', '{data['events_reporting_id']}', '{data['name']}', '{data['type']}', '{data['remarks']}')"
+            f"('{data['component_id']}', '{data['events_reporting_id']}', '{data['name']}', '{data['type']}', '{data['sub_type']}', '{data['remarks']}')"
             for data in data_list
         )
 
-        mssql_hook.run(f'''INSERT INTO DomoAds (component_id, events_reporting_id, events_name, type, remarks)
+        mssql_hook.run(f'''INSERT INTO AdsMapping (component_id, events_reporting_id, events_name, type, sub_type, remarks)
                        VALUES {values};
                        ''')
         # conn.commit()
