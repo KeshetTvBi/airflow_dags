@@ -113,7 +113,7 @@ with (DAG(
         task_id='extract_fulfil_tables',
         python_callable=extract_fulfil_tables,
         op_args=[['forums_summary', 'votes_summary', 'furl', 'item_channel', 'publish_info', 'record_id', 'video_duration',
-                  'vod_attribute', 'votes_summary']],
+                  'vod_attribute', 'votes_summary', 'genre', 'recipe_components', 'video_creators', 'workers']],
         provide_context=True,
         # on_failure_callback=send_slack_error_notification
     )
