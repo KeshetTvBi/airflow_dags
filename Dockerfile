@@ -11,10 +11,6 @@ RUN mkdir -p $AIRFLOW_HOME/dags
 # Copy DAG files into the DAGs directory
 COPY dags/ $AIRFLOW_HOME/dags/
 
-# Optionally, add a requirements file to install DAG-specific dependencies
-#COPY requirements.txt /tmp/requirements.txt
-#RUN pip install --no-cache-dir -r /tmp/requirements.txt
-
 # Set the working directory for the DAGs
 WORKDIR $AIRFLOW_HOME
 
