@@ -125,7 +125,7 @@ def push_to_sqlserver(**kwargs):
         # cursor = conn.cursor()
 
         # Truncate the table
-        truncate_query = "TRUNCATE TABLE AdsMapping;"
+        truncate_query = "TRUNCATE TABLE DomoAds;"
         mssql_hook.run(truncate_query)
 
         values = ', '.join(
@@ -133,7 +133,7 @@ def push_to_sqlserver(**kwargs):
             for data in data_list
         )
 
-        mssql_hook.run(f'''INSERT INTO AdsMapping (component_id, events_reporting_id, events_name, type, sub_type, remarks)
+        mssql_hook.run(f'''INSERT INTO DomoAds (component_id, events_reporting_id, events_name, type, sub_type, remarks)
                        VALUES {values};
                        ''')
         # conn.commit()
