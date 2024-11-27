@@ -148,8 +148,8 @@ def cleanup_files():
 with (DAG(
          dag_id='statisticon',
          default_args=default_args,
-         # schedule_interval='*/3 * * * *',
-         schedule_interval=None,
+         schedule_interval='*/3 * * * *',
+         # schedule_interval=None,
          catchup=False
 )  as dag):
 
@@ -196,11 +196,10 @@ with (DAG(
     #     # on_failure_callback=send_slack_error_notification
     # )
 
-    # cleanup_files_task = PythonOperator(
-    #     task_id='cleanup_files',
-    #     python_callable=cleanup_files
-    # )
+    cleanup_files_task = PythonOperator(
+        task_id='cleanup_files',
+        python_callable=cleanup_files
+    )
 
     # Define task dependencies
-    extract_data_task >> transform_data_task >> csv_to_domo_task >> run_dataset_domo_task
-    # >> cleanup_files_task
+    extract_data_task >> transform_data_task >> csv_to_domo_task >> run_dataset_domo_task >> cleanup_files_task
