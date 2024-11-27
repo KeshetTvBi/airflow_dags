@@ -146,7 +146,7 @@ def push_to_sqlserver(**kwargs):
 
 
 with DAG(
-        'ads_mapping',
+        dag_id='ads_mapping',
         default_args=default_args,
         schedule_interval='@daily',
         catchup=False
