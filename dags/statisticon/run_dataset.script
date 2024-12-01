@@ -1,4 +1,4 @@
 
 connect -s keshet-tv.domo.com -t 0dfe76734a4389eab850a1c93dbd753092a3c9b6a287e278
 
-dataset-run-now -i 1313 -s
+dataset-run-now -i 1600 -s
