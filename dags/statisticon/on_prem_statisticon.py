@@ -122,7 +122,7 @@ def transform_data(**kwargs):
 
 def csv_to_domo():
     if env == 'dev':
-        subprocess.run(['java', '-jar', 'domoUtil.jar', '-s', 'pushscript_dev.script'], cwd='/opt/airflow/dags/statisticon')
+        subprocess.run(['java', '-jar', 'domoUtil.jar', '-s', 'pushscript_dev.script'], cwd='/opt/airflow/dags/utilities')
     else:
         subprocess.run(['java', '-jar', '/home/domoUtil/domoUtil.jar', '-s', 'dags/statisticon/pushscript.script'])
 
@@ -130,7 +130,7 @@ def csv_to_domo():
 def run_dataset_domo(**kwargs):
     if env == 'dev':
         subprocess.run(['java', '-jar', 'domoUtil.jar', '-s', 'run_dataset.script'],
-                       cwd='/opt/airflow/dags/statisticon')
+                       cwd='/opt/airflow/dags/utilities')
     else:
         subprocess.run(['java', '-jar', '/home/domoUtil/domoUtil.jar', '-s', 'dags/statisticon/run_dataset.script'])
 
