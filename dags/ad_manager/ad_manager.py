@@ -39,7 +39,7 @@ def create_campaign_report():
     fields = [x['name'] for x in domo.datasets.get(dfp_dataset_id)['schema']['columns']]
 
     now = datetime.datetime.today()
-    from_date = now - datetime.timedelta(days=30)
+    from_date = now - datetime.timedelta(days=1)
 
     weeks = [(from_date + datetime.timedelta(days=i), from_date + datetime.timedelta(days=i + 6)) for i in
              range(0, (now - from_date).days, 7)]
@@ -77,12 +77,23 @@ def create_campaign_report():
     dfp_report_data_final = [{k: x[k] for k in fields} for x in dfp_report_data_final]
 
     df_final = pd.DataFrame(dfp_report_data_final)
-    df_final.to_csv('dags/ad_manager/tmp/final.csv', index=False)
+    df_final.to_csv('dags/ad_manager/tmp/campaign.csv', index=False)
 
 
 def create_display_report():
-    end_date = datetime.datetime.today()
-    start_date = end_date - datetime.timedelta(days=1)
+    today = datetime.datetime.today()
+    end_date = {
+        "year": today.year,
+        "month": today.month,
+        "day": today.day
+    }
+    yesterday = today - datetime.timedelta(days=1)
+
+    start_date = {
+        "year": yesterday.year,
+        "month": yesterday.month,
+        "day": yesterday.day
+    }
 
     log.info(f'Display report for {end_date} - {start_date}')
 
@@ -94,16 +105,7 @@ def create_display_report():
     # dfp_report_data = client_api.download_report(13653086304, start_date, end_date)
 
     df_final = pd.DataFrame(dfp_report_data)
-    df_final.to_csv('dags/idx/tmp/final.csv', index=False)
-
-def push_to_domo():
-    df_final = pd.read_csv('dags/idx/tmp/final.csv')
-    log.info(f'Push report data to domo')
-
-    # if env == 'dev':
-    #     subprocess.run(['java', '-jar', 'domoUtil.jar', '-s', 'pushscript_dev.script'], cwd='/opt/airflow/dags/utilities')
-    # else:
-    #     subprocess.run(['java', '-jar', '/home/domoUtil/domoUtil.jar', '-s', 'dags/statisticon/run_dataset.script'])
+    df_final.to_csv('dags/ad_manager/tmp/display.csv', index=False)
 
 
 with (DAG(
@@ -112,6 +114,12 @@ with (DAG(
         schedule_interval=None,
         catchup=False
 ) as dag):
+    create_campaign_report_task = PythonOperator(
+        task_id='create_campaign_report',
+        python_callable=create_campaign_report,
+        provide_context=True,
+        # on_failure_callback=send_slack_error_notification
+    )
 
     create_display_report_task = PythonOperator(
         task_id='create_report_display',
@@ -128,5 +136,4 @@ with (DAG(
     # )
 
 
-    create_display_report_task
-    #>> push_to_domo_task
+    create_campaign_report_task >> create_display_report_task

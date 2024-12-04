@@ -51,16 +51,20 @@ class Client:
 
         log.info(f'Report completed!')
 
-        log.info(f'Download the report')
-
-        export_format = 'CSV_DUMP'
-        report_downloader = self.client.GetDataDownloader(version='v202402')
         compressed_file = tempfile.NamedTemporaryFile(dir='dags/ad_manager/tmp', suffix='.csv.gz', delete=False)
+        def download_file():
+            export_format = 'CSV_DUMP'
+            report_downloader = self.client.GetDataDownloader(version='v202402')
+            report_downloader.DownloadReportToFile(report_job_id, export_format, compressed_file)
 
-        report_downloader.DownloadReportToFile(report_job_id, export_format, compressed_file)
+        try:
+            log.info(f'Download the report')
+            download_file()
 
-        with gzip.open(compressed_file.name, 'rt', newline='', encoding='utf8') as f_in:
-            dfp_report_data = list(csv.DictReader(f_in))
+            with gzip.open(compressed_file.name, 'rt', newline='', encoding='utf8') as f_in:
+                dfp_report_data = list(csv.DictReader(f_in))
+        except EOFError:
+            log.error(f'The compressed file is incomplete or corrupted')
 
         return dfp_report_data
 
