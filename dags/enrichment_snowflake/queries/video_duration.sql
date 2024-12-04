@@ -1,5 +1,6 @@
 select
-    *
+    vfl.*,
+    vfi.duration
 from KNM.dbo.VideoFilesLocation vfl with (nolock)
 left join (select
                ID,

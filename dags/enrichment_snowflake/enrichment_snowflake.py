@@ -47,7 +47,7 @@ def extract_main_tables(tables, **kwargs):
             sql_query = file.read().format(timestamp=start_time, table_name=table)
 
         df = pd.read_sql(sql_query, engine)
-        df.to_csv(f'dags/enrichment_snowflake/outputs/{table}.csv', index=False)
+        df.to_csv(f'dags/enrichment_snowflake/outputs/{table}.csv', index=False, encoding='utf-8', compression=None)
 
 def extract_fulfil_tables(tables, **kwargs):
     start_time = kwargs['ti'].xcom_pull(task_ids='extract_start_time', key='es_start_time')
@@ -70,8 +70,9 @@ def insert_into_snowflake():
 
     directory = Path('dags/enrichment_snowflake/outputs')
     output_files = [file.stem for file in directory.glob('*.csv')]
-    print(f'output_files--------- {output_files}')
+
     for table in output_files:
+        print(f'Push table {table} to Snowflake')
         with conn.cursor() as cur:
             # PUT the CSV file to Snowflake stage
             put_query = f'PUT file://{directory}/{table}.csv @ENRICHMENT_STAGE/{table}'
@@ -84,6 +85,7 @@ def insert_into_snowflake():
                             FILE_FORMAT = (TYPE = 'CSV', FIELD_OPTIONALLY_ENCLOSED_BY = '"', SKIP_HEADER = 1);
                           '''
             cur.execute(copy_query)
+            print(f'Push {table} successfully to Snowflake')
 
             cur.execute(f"rm @ENRICHMENT_STAGE/{table}")
 
@@ -113,7 +115,8 @@ with (DAG(
         task_id='extract_fulfil_tables',
         python_callable=extract_fulfil_tables,
         op_args=[['forums_summary', 'votes_summary', 'furl', 'item_channel', 'publish_info', 'record_id', 'video_duration',
-                  'vod_attribute', 'votes_summary', 'genre', 'recipe_components', 'video_creators', 'workers']],
+                  'vod_attribute', 'votes_summary', 'genre', 'recipe_components', 'video_creators', 'workers', 'pictures_sources',
+                  'related_content', 'articles_writers', 'canonical_channel']],
         provide_context=True,
         # on_failure_callback=send_slack_error_notification
     )
