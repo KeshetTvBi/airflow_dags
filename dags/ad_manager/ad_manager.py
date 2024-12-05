@@ -1,5 +1,6 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
 from airflow.models import Variable
 import pandas as pd
 import traceback
@@ -23,6 +24,8 @@ logging.basicConfig(level=logging.INFO)
 
 domo = Domo(Variable.get('domoKey'), Variable.get('domoSecret'), api_host='api.domo.com')
 dfp_dataset_id = '4e35d12f-8061-4d3b-b726-efc7728f603c'
+
+SNOWFLAKE_CONN_ID = 'mako_snowflake'
 
 default_args = {
     'owner': 'airflow',
@@ -108,6 +111,43 @@ def create_display_report():
     df_final.to_csv('dags/ad_manager/tmp/display.csv', index=False)
 
 
+def push_to_snowflake(**kwargs):
+    snowflake_hook = SnowflakeHook(snowflake_conn_id=SNOWFLAKE_CONN_ID)
+    df = pd.read_csv('dags/ad_manager/tmp/display.csv')
+
+    data_list = df.to_dict(orient='records')
+    try:
+        values = ', '.join(
+            f"('{data['Dimension.ORDER_NAME']}', '{data['Dimension.LINE_ITEM_NAME']}', '{data['Dimension.CREATIVE_NAME']}', "
+            f"'{data['Dimension.LINE_ITEM_TYPE']}', '{data['Dimension.ADVERTISER_NAME']}', '{data['Dimension.ORDER_ID']}', "
+            f"'{data['Dimension.LINE_ITEM_ID']}', '{data['Dimension.CREATIVE_ID']}', '{data['Dimension.ADVERTISER_ID']}', "
+            f"'{data['DimensionAttribute.LINE_ITEM_FREQUENCY_CAP']}', '{data['DimensionAttribute.LINE_ITEM_GOAL_QUANTITY']}', "
+            f"'{data['DimensionAttribute.LINE_ITEM_END_DATE_TIME']}', '{data['DimensionAttribute.LINE_ITEM_START_DATE_TIME']}', "
+            f"'{data['DimensionAttribute.LINE_ITEM_COST_PER_UNIT']}', '{data['DimensionAttribute.LINE_ITEM_COMPUTED_STATUS']}', "
+            f"'{data['DimensionAttribute.LINE_ITEM_DISCOUNT']}', '{data['DimensionAttribute.ORDER_SALESPERSON']}', "
+            f"'{data['DimensionAttribute.ORDER_PO_NUMBER']}', '{data['Column.TOTAL_LINE_ITEM_LEVEL_IMPRESSIONS']}', "
+            f"'{data['Column.TOTAL_LINE_ITEM_LEVEL_CLICKS']}', '{data['Column.TOTAL_LINE_ITEM_LEVEL_CTR']}', "
+            f"'{data['Column.TOTAL_LINE_ITEM_LEVEL_ALL_REVENUE']}', '{data['Column.TOTAL_ACTIVE_VIEW_VIEWABLE_IMPRESSIONS_RATE']}'))" for data in data_list
+        )
+
+        query = f'''
+                    INSERT INTO dfp_display (Dimension.ORDER_NAME,Dimension.LINE_ITEM_NAME,Dimension.CREATIVE_NAME,Dimension.LINE_ITEM_TYPE,
+                    Dimension.ADVERTISER_NAME,Dimension.ORDER_ID,Dimension.LINE_ITEM_ID,Dimension.CREATIVE_ID,Dimension.ADVERTISER_ID,
+                    DimensionAttribute.LINE_ITEM_FREQUENCY_CAP,DimensionAttribute.LINE_ITEM_GOAL_QUANTITY,DimensionAttribute.LINE_ITEM_END_DATE_TIME,
+                    DimensionAttribute.LINE_ITEM_START_DATE_TIME,DimensionAttribute.LINE_ITEM_COST_PER_UNIT,DimensionAttribute.LINE_ITEM_COMPUTED_STATUS,
+                    DimensionAttribute.LINE_ITEM_DISCOUNT,DimensionAttribute.ORDER_SALESPERSON,DimensionAttribute.ORDER_PO_NUMBER,
+                    Column.TOTAL_LINE_ITEM_LEVEL_IMPRESSIONS,Column.TOTAL_LINE_ITEM_LEVEL_CLICKS,Column.TOTAL_LINE_ITEM_LEVEL_CTR,
+                    Column.TOTAL_LINE_ITEM_LEVEL_ALL_REVENUE,Column.TOTAL_ACTIVE_VIEW_VIEWABLE_IMPRESSIONS_RATE)
+                    VALUES {values};
+                '''
+        snowflake_hook.run(query)
+        logging.info('Batch insert completed successfully')
+
+    except Exception as e:
+        logging.error(f'Error inserting data into Snowflake: {e}')
+        raise
+
+
 with (DAG(
         dag_id='ad_manager',
         default_args=default_args,
@@ -128,12 +168,11 @@ with (DAG(
         # on_failure_callback=send_slack_error_notification
     )
 
-    # push_to_domo_task = PythonOperator(
-    #     task_id='push_to_domo',
-    #     python_callable=push_to_domo,
-    #     provide_context=True,
-    #     # on_failure_callback=send_slack_error_notification
-    # )
-
+    push_to_snowflake_task = PythonOperator(
+        task_id='push_to_snowflake',
+        python_callable=push_to_snowflake,
+        provide_context=True,
+        # on_failure_callback=send_slack_error_notification
+    )
 
     create_campaign_report_task >> create_display_report_task
