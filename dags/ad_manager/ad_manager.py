@@ -131,13 +131,12 @@ def push_to_snowflake(**kwargs):
         )
 
         query = f'''
-                    INSERT INTO dfp_display (Dimension.ORDER_NAME,Dimension.LINE_ITEM_NAME,Dimension.CREATIVE_NAME,Dimension.LINE_ITEM_TYPE,
-                    Dimension.ADVERTISER_NAME,Dimension.ORDER_ID,Dimension.LINE_ITEM_ID,Dimension.CREATIVE_ID,Dimension.ADVERTISER_ID,
-                    DimensionAttribute.LINE_ITEM_FREQUENCY_CAP,DimensionAttribute.LINE_ITEM_GOAL_QUANTITY,DimensionAttribute.LINE_ITEM_END_DATE_TIME,
-                    DimensionAttribute.LINE_ITEM_START_DATE_TIME,DimensionAttribute.LINE_ITEM_COST_PER_UNIT,DimensionAttribute.LINE_ITEM_COMPUTED_STATUS,
-                    DimensionAttribute.LINE_ITEM_DISCOUNT,DimensionAttribute.ORDER_SALESPERSON,DimensionAttribute.ORDER_PO_NUMBER,
-                    Column.TOTAL_LINE_ITEM_LEVEL_IMPRESSIONS,Column.TOTAL_LINE_ITEM_LEVEL_CLICKS,Column.TOTAL_LINE_ITEM_LEVEL_CTR,
-                    Column.TOTAL_LINE_ITEM_LEVEL_ALL_REVENUE,Column.TOTAL_ACTIVE_VIEW_VIEWABLE_IMPRESSIONS_RATE)
+                    INSERT INTO dfp_display (ORDER_NAME, LINE_ITEM_NAME, CREATIVE_NAME, LINE_ITEM_TYPE, ADVERTISER_NAME,
+                    ORDER_ID, LINE_ITEM_ID, CREATIVE_ID, ADVERTISER_ID, LINE_ITEM_FREQUENCY_CAP, LINE_ITEM_GOAL_QUANTITY,
+                    LINE_ITEM_END_DATE_TIME, LINE_ITEM_START_DATE_TIME, LINE_ITEM_COST_PER_UNIT, LINE_ITEM_COMPUTED_STATUS,
+                    LINE_ITEM_DISCOUNT, ORDER_SALESPERSON, ORDER_PO_NUMBER, TOTAL_LINE_ITEM_LEVEL_IMPRESSIONS,
+                    TOTAL_LINE_ITEM_LEVEL_CLICKS, TOTAL_LINE_ITEM_LEVEL_CTR, TOTAL_LINE_ITEM_LEVEL_ALL_REVENUE,
+                    TOTAL_ACTIVE_VIEW_VIEWABLE_IMPRESSIONS_RATE)
                     VALUES {values};
                 '''
         snowflake_hook.run(query)
