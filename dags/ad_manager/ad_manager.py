@@ -90,7 +90,7 @@ def create_display_report():
         "month": today.month,
         "day": today.day
     }
-    yesterday = today - datetime.timedelta(days=1)
+    yesterday = today - datetime.timedelta(days=30)
 
     start_date = {
         "year": yesterday.year,
@@ -111,41 +111,32 @@ def create_display_report():
     df_final.to_csv('dags/ad_manager/tmp/display.csv', index=False)
 
 
-def push_to_snowflake(**kwargs):
-    snowflake_hook = SnowflakeHook(snowflake_conn_id=SNOWFLAKE_CONN_ID)
-    df = pd.read_csv('dags/ad_manager/tmp/display.csv')
+def push_to_snowflake(tables, **kwargs):
+    snowflake_conn = SnowflakeHook(
+        snowflake_conn_id='mako_snowflake',
+        schema='PUBLIC'
+    )
+    conn = snowflake_conn.get_conn()
 
-    data_list = df.to_dict(orient='records')
-    try:
-        values = ', '.join(
-            f"('{data['Dimension.ORDER_NAME']}', '{data['Dimension.LINE_ITEM_NAME']}', '{data['Dimension.CREATIVE_NAME']}', "
-            f"'{data['Dimension.LINE_ITEM_TYPE']}', '{data['Dimension.ADVERTISER_NAME']}', '{data['Dimension.ORDER_ID']}', "
-            f"'{data['Dimension.LINE_ITEM_ID']}', '{data['Dimension.CREATIVE_ID']}', '{data['Dimension.ADVERTISER_ID']}', "
-            f"'{data['DimensionAttribute.LINE_ITEM_FREQUENCY_CAP']}', '{data['DimensionAttribute.LINE_ITEM_GOAL_QUANTITY']}', "
-            f"'{data['DimensionAttribute.LINE_ITEM_END_DATE_TIME']}', '{data['DimensionAttribute.LINE_ITEM_START_DATE_TIME']}', "
-            f"'{data['DimensionAttribute.LINE_ITEM_COST_PER_UNIT']}', '{data['DimensionAttribute.LINE_ITEM_COMPUTED_STATUS']}', "
-            f"'{data['DimensionAttribute.LINE_ITEM_DISCOUNT']}', '{data['DimensionAttribute.ORDER_SALESPERSON']}', "
-            f"'{data['DimensionAttribute.ORDER_PO_NUMBER']}', '{data['Column.TOTAL_LINE_ITEM_LEVEL_IMPRESSIONS']}', "
-            f"'{data['Column.TOTAL_LINE_ITEM_LEVEL_CLICKS']}', '{data['Column.TOTAL_LINE_ITEM_LEVEL_CTR']}', "
-            f"'{data['Column.TOTAL_LINE_ITEM_LEVEL_ALL_REVENUE']}', '{data['Column.TOTAL_ACTIVE_VIEW_VIEWABLE_IMPRESSIONS_RATE']}'))" for data in data_list
-        )
+    directory = 'dags/ad_manager/tmp'
 
-        query = f'''
-                    INSERT INTO dfp_display (ORDER_NAME, LINE_ITEM_NAME, CREATIVE_NAME, LINE_ITEM_TYPE, ADVERTISER_NAME,
-                    ORDER_ID, LINE_ITEM_ID, CREATIVE_ID, ADVERTISER_ID, LINE_ITEM_FREQUENCY_CAP, LINE_ITEM_GOAL_QUANTITY,
-                    LINE_ITEM_END_DATE_TIME, LINE_ITEM_START_DATE_TIME, LINE_ITEM_COST_PER_UNIT, LINE_ITEM_COMPUTED_STATUS,
-                    LINE_ITEM_DISCOUNT, ORDER_SALESPERSON, ORDER_PO_NUMBER, TOTAL_LINE_ITEM_LEVEL_IMPRESSIONS,
-                    TOTAL_LINE_ITEM_LEVEL_CLICKS, TOTAL_LINE_ITEM_LEVEL_CTR, TOTAL_LINE_ITEM_LEVEL_ALL_REVENUE,
-                    TOTAL_ACTIVE_VIEW_VIEWABLE_IMPRESSIONS_RATE)
-                    VALUES {values};
-                '''
-        snowflake_hook.run(query)
-        logging.info('Batch insert completed successfully')
+    for table in tables:
+        print(f'Push table {table} to Snowflake')
+        with conn.cursor() as cur:
+            # PUT the CSV file to Snowflake stage
+            put_query = f'PUT file://{directory}/{table}.csv @DFP_STAGE/DFP_{table}'
+            cur.execute(put_query)
 
-    except Exception as e:
-        logging.error(f'Error inserting data into Snowflake: {e}')
-        raise
+            # COPY INTO command to load CSV data into Snowflake table
+            copy_query = f'''
+                            COPY INTO DFP_{table}
+                            FROM @DFP_STAGE/DFP_{table}
+                            FILE_FORMAT = (TYPE = 'CSV', FIELD_OPTIONALLY_ENCLOSED_BY = '"', SKIP_HEADER = 1);
+                          '''
+            cur.execute(copy_query)
+            print(f'Push {table} successfully to Snowflake')
 
+            cur.execute(f"rm @DFP_STAGE/{table}")
 
 with (DAG(
         dag_id='ad_manager',
@@ -153,12 +144,12 @@ with (DAG(
         schedule_interval=None,
         catchup=False
 ) as dag):
-    create_campaign_report_task = PythonOperator(
-        task_id='create_campaign_report',
-        python_callable=create_campaign_report,
-        provide_context=True,
-        # on_failure_callback=send_slack_error_notification
-    )
+    # create_campaign_report_task = PythonOperator(
+    #     task_id='create_campaign_report',
+    #     python_callable=create_campaign_report,
+    #     provide_context=True,
+    #     # on_failure_callback=send_slack_error_notification
+    # )
 
     create_display_report_task = PythonOperator(
         task_id='create_report_display',
@@ -170,8 +161,9 @@ with (DAG(
     push_to_snowflake_task = PythonOperator(
         task_id='push_to_snowflake',
         python_callable=push_to_snowflake,
+        op_args=[['display']],
         provide_context=True,
         # on_failure_callback=send_slack_error_notification
     )
 
-    create_campaign_report_task >> create_display_report_task
+    create_display_report_task >> push_to_snowflake_task
