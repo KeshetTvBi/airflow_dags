@@ -116,7 +116,7 @@ with (DAG(
         python_callable=extract_fulfil_tables,
         op_args=[['forums_summary', 'votes_summary', 'furl', 'item_channel', 'publish_info', 'record_id', 'video_duration',
                   'vod_attribute', 'votes_summary', 'genre', 'recipe_components', 'video_creators', 'workers', 'pictures_sources',
-                  'related_content', 'articles_writers', 'canonical_channel']],
+                  'related_content', 'articles_writers', 'canonical_channel', 'channels_main_channels']],
         provide_context=True,
         # on_failure_callback=send_slack_error_notification
     )

@@ -6,7 +6,9 @@ select
    case when md.unpublishDate=0  then null else dateadd(s, md.unpublishDate / 1000, '19700101 00:00:00') end as unpublishDate,
    case when md.lastPublishDate=0  then null else dateadd(s, md.lastPublishDate / 1000, '19700101 00:00:00') end as lastPublishDate,
    case when md.lastUnpublishDate=0  then null else dateadd(s, md.lastUnpublishDate / 1000, '19700101 00:00:00') end as lastUnpublishDate,
+   md.contentMgmtId,
    md.name,
+   md.objectTypeId,
    md.logicalPath,
    md.modCount
 from vcmsys.vcmsys.vgnAsMoMap mm with (nolock)
