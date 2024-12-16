@@ -47,6 +47,24 @@ def extract_main_tables(tables, **kwargs):
             sql_query = file.read().format(timestamp=start_time, table_name=table)
 
         df = pd.read_sql(sql_query, engine)
+
+        # Add seconds to time values in the DISPLAYTIME column
+        def fix_time_format(value):
+            if pd.isnull(value) or value == '01/01/1970':
+                return None
+            try:
+                parts = value.split(':')
+                if len(parts) == 2:  # If format is 'HH:MM'
+                    return f"{value}:00"  # Append ':00'
+                if len(parts) == 3:  # Check if the value is in 'HH:MM:SS' format
+                    parts[0] = parts[0].zfill(2)  # Pad single-digit hours
+                    return ':'.join(parts)
+                return value
+            except Exception:
+                return None  # Treat invalid values as None
+
+        df['DisplayTime'] = df['DisplayTime'].apply(fix_time_format)
+
         df.to_csv(f'dags/enrichment_snowflake/outputs/{table}.csv', index=False, encoding='utf-8', compression=None)
 
 def extract_fulfil_tables(tables, **kwargs):
@@ -58,6 +76,7 @@ def extract_fulfil_tables(tables, **kwargs):
             sql_query = file.read().format(timestamp=start_time)
 
         df = pd.read_sql(sql_query, engine)
+
         df.to_csv(f'dags/enrichment_snowflake/outputs/TB_{table}.csv', index=False)
 
 
@@ -78,12 +97,17 @@ def insert_into_snowflake():
             put_query = f'PUT file://{directory}/{table}.csv @ENRICHMENT_STAGE/{table}'
             cur.execute(put_query)
 
+            # Truncate Table
+            truncate_query = f'TRUNCATE TABLE {table};'
+            cur.execute(truncate_query)
+
             # COPY INTO command to load CSV data into Snowflake table
             copy_query = f'''
                             COPY INTO {table}
                             FROM @ENRICHMENT_STAGE/{table}
-                            FILE_FORMAT = (TYPE = 'CSV', FIELD_OPTIONALLY_ENCLOSED_BY = '"', SKIP_HEADER = 1);
+                            FILE_FORMAT = (TYPE = 'CSV' NULL_IF = (' ', 'NULL'), FIELD_OPTIONALLY_ENCLOSED_BY = '"', SKIP_HEADER = 1);
                           '''
+            # ON_ERROR = 'CONTINUE'
             cur.execute(copy_query)
             print(f'Push {table} successfully to Snowflake')
 
