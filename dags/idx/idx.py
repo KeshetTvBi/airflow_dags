@@ -75,7 +75,7 @@ def CCase(s):
 
 
 def selfJoinPrices(a, b):
-    return a['Buyer'] + a['Brand'] + a['Product'] == b['Buyer'] + b['Brand'] + b['Product']
+    return a['Buyer'] + a['Brand'] + a['Product'] + a['CPM'] == b['Buyer'] + b['Brand'] + b['Product'] + b['CPM']
 
 
 def extract_price(**kwargs):
@@ -268,12 +268,11 @@ def transform_data(**kwargs):
     final_dat_no_dups = []
 
     for row in final_dat:
-
         key = ''.join([str(x) for x in row.values()])
         if key not in dupcheck:
             rowDate = datetime.datetime.strptime(row['createDate'], '%Y-%m-%d')
 
-            priceJoinObj = {''.join([x['Buyer'], x['Brand'], x['Product']]): {
+            priceJoinObj = {''.join([x['Buyer'], x['Brand'], x['Product'], x['CPM']]): {
                 'Price': float(x['Price'].replace('₪', '').replace('-', '0').strip()),
                 'Commission': float(x['Commission'])} for x in pricelist if
                 x['Date'].replace(tzinfo=None) <= rowDate.replace(tzinfo=None) <= x['EndDate'].replace(tzinfo=None)}
@@ -297,17 +296,26 @@ def transform_data(**kwargs):
             try:
                 try:
                     row['price_after_discount'] = row['impressions'] / 1000 * priceJoinObj[
-                        ''.join([row['buyer'], row['brandName'], row['blockType']])]['Price']
+                        ''.join([row['buyer'], row['blockType'], str(int(row['blockCost']))])]['Price']
                     row['price_after_commission'] = row['price_after_discount'] - row['price_after_discount'] * \
                                                     priceJoinObj[
-                                                        ''.join([row['buyer'], row['brandName'], row['blockType']])][
+                                                        ''.join([row['buyer'], row['blockType'], str(int(row['blockCost']))])][
                                                         'Commission']
+
                 except:
-                    row['price_after_discount'] = row['impressions'] / 1000 * \
-                                                  priceJoinObj[''.join([row['buyer'], row['blockType']])]['Price']
-                    row['price_after_commission'] = row['price_after_discount'] - row['price_after_discount'] * \
-                                                    priceJoinObj[''.join([row['buyer'], row['blockType']])][
-                                                        'Commission']
+                    try:
+                        row['price_after_discount'] = row['impressions'] / 1000 * priceJoinObj[
+                            ''.join([row['buyer'], row['brandName'], row['blockType']])]['Price']
+                        row['price_after_commission'] = row['price_after_discount'] - row['price_after_discount'] * \
+                                                        priceJoinObj[
+                                                            ''.join([row['buyer'], row['brandName'], row['blockType']])][
+                                                            'Commission']
+                    except:
+                        row['price_after_discount'] = row['impressions'] / 1000 * \
+                                                      priceJoinObj[''.join([row['buyer'], row['blockType']])]['Price']
+                        row['price_after_commission'] = row['price_after_discount'] - row['price_after_discount'] * \
+                                                        priceJoinObj[''.join([row['buyer'], row['blockType']])][
+                                                            'Commission']
 
             except:
 
@@ -426,3 +434,4 @@ with DAG(dag_id='idx_v2',
     )
 
     [extract_price_task, domo_schema_task, request_idx_task] >> transform_data_task >> push_to_domo_task >> cleanup_files_task
+    # [extract_price_task, domo_schema_task, request_idx_task] >> transform_data_task
