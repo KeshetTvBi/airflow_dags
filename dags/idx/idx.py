@@ -388,8 +388,8 @@ def cleanup_files():
 
 
 with DAG(dag_id='idx_v2',
-         # schedule_interval='50 3 * * *',
-         schedule_interval=None,
+         schedule_interval='50 3 * * *',
+         # schedule_interval=None,
          catchup=False,
          default_args=default_args) as dag:
 
@@ -434,4 +434,3 @@ with DAG(dag_id='idx_v2',
     )
 
     [extract_price_task, domo_schema_task, request_idx_task] >> transform_data_task >> push_to_domo_task >> cleanup_files_task
-    # [extract_price_task, domo_schema_task, request_idx_task] >> transform_data_task
