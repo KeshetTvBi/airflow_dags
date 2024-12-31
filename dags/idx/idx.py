@@ -103,7 +103,10 @@ def extract_price(**kwargs):
         if len(greater_dates) > 0:
             row['EndDate'] = greater_dates[0] - datetime.timedelta(days=1)
 
-    kwargs['ti'].xcom_push(key='idx_pricelist', value=pricelist)
+    with open('dags/idx/tmp/prices.csv', mode="w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=pricelist[0].keys())
+        writer.writeheader()
+        writer.writerows(pricelist)
 
 
 def domo_schema(**kwargs):
@@ -192,8 +195,25 @@ def request_idx(**kwargs):
 
 
 def transform_data(**kwargs):
-    pricelist = kwargs['ti'].xcom_pull(task_ids='extract_price', key='idx_pricelist')
     fields_order_first = kwargs['ti'].xcom_pull(task_ids='domo_schema', key='idx_fields_order_first')
+
+    def load_from_csv(file_path):
+        with open(file_path, mode='r') as f:
+            reader = csv.DictReader(f)
+            data = [row for row in reader]
+
+        # Convert string back to datetime for the 'Date' and 'EndDate' columns
+        for record in data:
+            for key, value in record.items():
+                if "Date" in key or "EndDate" in key:  # Adjust based on column names
+                    try:
+                        record[key] = datetime.datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
+                    except ValueError:
+                        pass
+
+        return data
+
+    pricelist = load_from_csv('dags/idx/tmp/prices.csv')
 
     with open('dags/idx/tmp/active.json', 'r') as json_file:
         active = json.load(json_file)
