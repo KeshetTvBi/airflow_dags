@@ -297,7 +297,7 @@ def validate_domo_dashboards():
     )
     # ------- m_channels_daily_model -------
 
-    m_channels_daily_model
+#todo:    m_channels_daily_model
     m_items_pageview_daily
     m_channel_daily_goals
     m_items_pageview_daily

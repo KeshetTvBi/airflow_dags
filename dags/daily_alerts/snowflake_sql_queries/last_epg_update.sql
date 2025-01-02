@@ -1,0 +1,7 @@
+SELECT
+    CASE
+        WHEN COUNT(DISTINCT date) = 1 THEN 'SUCCESS'
+        ELSE 'FAILED'
+    END AS last_epg_update
+FROM EPG_LIVE_EVENTS
+WHERE date >= CURRENT_DATE - 1 ;
