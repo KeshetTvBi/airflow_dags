@@ -109,17 +109,17 @@ def create_dim_instagram_accounts(**kwargs):
             "fields": "id,name,instagram_business_account",
             "access_token": ACCESS_TOKEN
         }
-        fetch_pages(owned_pages_url, params, "owned_pages")
+        fetch_pages(owned_pages_url, params, "owned_pages", unique_pages)
 
         # Step 2: Fetch Pages from /me/accounts
         logging.info("Fetching Pages from Me Accounts Endpoint")
         accounts_url = "https://graph.facebook.com/v21.0/me/accounts"
-        fetch_pages(accounts_url, params, "me/accounts")
+        fetch_pages(accounts_url, params, "me/accounts", unique_pages)
 
         # Step 3: Fetch Pages from /client_pages
         logging.info("Fetching Pages from Client Pages Endpoint")
         client_pages_url = f"https://graph.facebook.com/v21.0/{BUSINESS_ACCOUNT_ID}/client_pages"
-        fetch_pages(client_pages_url, params, "client_pages")
+        fetch_pages(client_pages_url, params, "client_pages", unique_pages)
 
         # Save to CSV
         current_date = datetime.now().strftime("%d_%m_%y")
