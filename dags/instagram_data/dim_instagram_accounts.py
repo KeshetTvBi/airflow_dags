@@ -273,7 +273,7 @@ with DAG(
     dag_id="dim_instagram_accounts_dag",
     default_args=default_args,
     description="Fetch Instagram accounts data and upload to Snowflake",
-    schedule_interval="0 17 * * *",  # Run daily at 17:00
+    schedule_interval="0 15 * * *",  # Run daily at 17:00
     start_date=datetime(2025, 1, 7),
     catchup=False,
 ) as dag:
