@@ -126,13 +126,6 @@ def create_dim_instagram_accounts(**kwargs):
         df_pages = pd.DataFrame.from_dict(unique_pages, orient="index")
         df_pages.dropna(subset=["instagram_account_id"], inplace=True)
         df_pages['last_update'] = datetime.now().date()
-        try:
-            desktop_path = f"C:/Users/omer.yarchi/Desktop/Graph API for Instagram Insights/dim_instagram_accounts/dim_instagram_accounts_{current_date}.csv"
-            df_pages.to_csv(
-                desktop_path, index=False, encoding='utf-8-sig')
-            logging.info(f"Data saved to {desktop_path} successfully")
-        except Exception as e:
-            logging.error(f"Error saving csv: {e}")
 
         return unique_pages  # Return the dictionary
     except Exception as e:
@@ -152,8 +145,16 @@ def save_to_snowflake(ti, **kwargs):
         logging.error("No data found in XCom for `unique_pages`.")
         raise ValueError("No data found in XCom.")
 
-    # Step 4: Convert Results to a DataFrame
+    # Convert Results to a DataFrame
     df_pages = pd.DataFrame.from_dict(unique_pages, orient="index")
+    # Debugging logs
+    logging.info(f"df_pages columns: {df_pages.columns}")
+    logging.info(f"df_pages head: {df_pages.head()}")
+
+    if "instagram_account_id" not in df_pages.columns:
+        logging.error("The column 'instagram_account_id' is missing in the DataFrame.")
+        return
+
     df_pages.dropna(subset=["instagram_account_id"], inplace=True)
     df_pages['last_update'] = datetime.now().date()
     logging.info(f"Combined Pages and Instagram Accounts. Total records: {len(df_pages)}")
@@ -262,7 +263,7 @@ default_args = {
     'owner': 'airflow_omer',
     #'start_date':datetime(2024, 1, 7),
     'email': ['omer.yarchi@keshet-d.com'],
-    'email_on_failure': True,
+    'email_on_failure': False,
     'email_on_retry': False,
     'retries': 0,
     'retry_delay': timedelta(minutes=3)
