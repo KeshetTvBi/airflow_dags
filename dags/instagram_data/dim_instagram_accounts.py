@@ -245,7 +245,7 @@ def save_to_snowflake(ti, **kwargs):
     # Drop the staging table
     try:
 
-        cleanup_query = text(f"DROP TABLE IF EXISTS {SNOWFLAKE_CONFIG['DATABASE']}.{SNOWFLAKE_CONFIG['SCHEMA']}.{table_staging}")
+        cleanup_query = text(f"DROP TABLE IF EXISTS {SNOWFLAKE_CONFIG['database']}.{SNOWFLAKE_CONFIG['schema']}.{table_staging}")
         session.execute(cleanup_query)
         logging.info(f"Table {table_staging} dropped successfully.")
         session.commit()
