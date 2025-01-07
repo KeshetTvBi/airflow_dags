@@ -40,12 +40,12 @@ BUSINESS_ACCOUNT_ID = "10154132454588797"  # The Facebook Business Account ID
 # PAGE_ID = "100462013796" #mako#       # Facebook Page ID connected to Instagram Business Account
 SNOWFLAKE_CONFIG = {
 # Snowflake connection parameters
-"USER" : "OmerY",
-"PASSWORD" : "Oy!273g4",
-"ACCOUNT" : "el66449.eu-central-1",
-"WAREHOUSE" : "COMPUTE_WH",
-"DATABASE" : "MAKO_DATA_LAKE",
-"SCHEMA" : "PUBLIC"
+"user" : "OmerY",
+"password" : "Oy!273g4",
+"account" : "el66449.eu-central-1",
+"warehouse" : "COMPUTE_WH",
+"database" : "MAKO_DATA_LAKE",
+"schema" : "PUBLIC"
 }
 
 # Log the start of the script
