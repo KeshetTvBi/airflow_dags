@@ -3,12 +3,10 @@
 import logging
 
 # Set up logging
-logging.basicConfig(
-    filename="C:/Users/omer.yarchi/Desktop/Graph API for Instagram Insights/dim_instagram_accounts/dim_instagram_accounts.log",
-    # Log file name
-    level=logging.INFO,  # Logging level
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
+# Set up logging
+log = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s - %(levelname)s - %(message)s")
 
 # Set the logging level for the Snowflake connector to WARNING or higher
 logging.getLogger("snowflake").setLevel(logging.WARNING)
@@ -129,9 +127,9 @@ def create_dim_instagram_accounts(**kwargs):
 
         return unique_pages  # Return the dictionary
     except Exception as e:
-        logging.error(f"Error: {e}")        # upload data to snowflake table mako_data_lake.public.dim_instagram_account
+        logging.error(f"Error: {e}")
         raise
-
+# upload data to snowflake table mako_data_lake.public.dim_instagram_account
         # from sqlalchemy import create_engine
         # from sqlalchemy.orm import sessionmaker
         # from sqlalchemy.sql import text
@@ -270,7 +268,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id="dim_instagram_accounts_dag",
+    dag_id="dim_instagram_accounts",
     default_args=default_args,
     description="Fetch Instagram accounts data and upload to Snowflake",
     schedule_interval="0 15 * * *",  # Run daily at 17:00
