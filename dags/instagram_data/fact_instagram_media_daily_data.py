@@ -224,44 +224,46 @@ async def fetch_all_media_and_insights(session, instagram_account_id, page_name,
 
 # Main function to orchestrate fetching and processing of media and insights data
 async def create_fact_instagram_media_daily_data():
-    async with aiohttp.ClientSession() as session:
-        # Step 1: Fetch Pages from Owned Pages and Me Accounts Endpoints
-        owned_pages_url = f"https://graph.facebook.com/v21.0/{BUSINESS_ACCOUNT_ID}/owned_pages"
-        me_accounts_url = "https://graph.facebook.com/v21.0/me/accounts"
-        client_pages_url = f"https://graph.facebook.com/v21.0/{BUSINESS_ACCOUNT_ID}/client_pages"
+    try:
+        async with aiohttp.ClientSession() as session:
+            # Step 1: Fetch Pages from Owned Pages and Me Accounts Endpoints
+            owned_pages_url = f"https://graph.facebook.com/v21.0/{BUSINESS_ACCOUNT_ID}/owned_pages"
+            me_accounts_url = "https://graph.facebook.com/v21.0/me/accounts"
+            client_pages_url = f"https://graph.facebook.com/v21.0/{BUSINESS_ACCOUNT_ID}/client_pages"
 
-        params = {
-            "fields": "id,name,instagram_business_account",
-            "access_token": ACCESS_TOKEN
-        }
+            params = {
+                "fields": "id,name,instagram_business_account",
+                "access_token": ACCESS_TOKEN
+            }
 
-        owned_pages = await fetch_pages(session, owned_pages_url, params, "owned_pages")
-        me_accounts = await fetch_pages(session, me_accounts_url, params, "me/accounts")
-        client_pages = await fetch_pages(session, client_pages_url, params, "client_pages")
+            owned_pages = await fetch_pages(session, owned_pages_url, params, "owned_pages")
+            me_accounts = await fetch_pages(session, me_accounts_url, params, "me/accounts")
+            client_pages = await fetch_pages(session, client_pages_url, params, "client_pages")
 
-        # Combine pages, ensuring no duplicates by instagram_account_id
-        all_pages = {page["instagram_account_id"]: page for page in owned_pages + me_accounts + client_pages if page["instagram_account_id"]}.values()
+            # Combine pages, ensuring no duplicates by instagram_account_id
+            all_pages = {page["instagram_account_id"]: page for page in owned_pages + me_accounts + client_pages if page["instagram_account_id"]}.values()
 
-        # Step 2: Fetch Media and Insights for Each Instagram Account
-        all_records = []
-        for page in all_pages:
-            instagram_account_id = page.get("instagram_account_id")
-            page_name = page.get("page_name")
-            facebook_page_id = page.get("page_id")
-            if instagram_account_id:
-                logging.info(f"Fetching media for Instagram account ID: {instagram_account_id}")
-                media_and_insights = await fetch_all_media_and_insights(
-                    session, instagram_account_id, page_name, facebook_page_id, START_DATE, END_DATE
-                )
-                all_records.extend(media_and_insights)
+            # Step 2: Fetch Media and Insights for Each Instagram Account
+            all_records = []
+            for page in all_pages:
+                instagram_account_id = page.get("instagram_account_id")
+                page_name = page.get("page_name")
+                facebook_page_id = page.get("page_id")
+                if instagram_account_id:
+                    logging.info(f"Fetching media for Instagram account ID: {instagram_account_id}")
+                    media_and_insights = await fetch_all_media_and_insights(
+                        session, instagram_account_id, page_name, facebook_page_id, START_DATE, END_DATE
+                    )
+                    all_records.extend(media_and_insights)
 
-        # Step 3: Save all results to a DataFrame and CSV
-        try:
-            df_media_metrics = pd.DataFrame(all_records)
-            df_media_metrics['last_update']=datetime.now().date() #adding current date as the table's last update date
-            logging.info("Combined Media Metrics Data")
-        except Exception as e:
-            logging.error(f"Error combining media metrics data: {e}")
+            # Step 3: Save all results to a DataFrame and CSV
+            #try:
+            #    df_media_metrics = pd.DataFrame(all_records)
+            #    df_media_metrics['last_update']=datetime.now().date() #adding current date as the table's last update date
+            #    logging.info("Combined Media Metrics Data")
+        return all_records
+    except Exception as e:
+        logging.error(f"Error: {e}")
 
 def save_to_snowflake(ti, **kwargs):
 
