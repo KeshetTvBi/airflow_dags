@@ -227,24 +227,26 @@ def create_fact_instagram_accounts_daily_data(**kwargs):
 def save_to_snowflake(ti, **kwargs):
     table = "fact_instagram_accounts_daily_data"
     table_staging = "fact_instagram_accounts_daily_data_staging"
+    try:
+        # Pull `records` from XCom
+        records = ti.xcom_pull(task_ids="create_fact_instagram_accounts_daily_data")
+        if not records:
+            logging.error("No data found in XCom for `records`.")
+            raise ValueError("No data found in XCom.")
 
-    # Pull `unique_pages` from XCom
-    records = ti.xcom_pull(task_ids="create_fact_instagram_accounts_daily_data")
-    if not records:
-        logging.error("No data found in XCom for `records`.")
-        raise ValueError("No data found in XCom.")
+        # Convert Results to a DataFrame
+        df_metrics = pd.DataFrame(records)
+        # Debugging logs
+        logging.info(f"df_metrics columns: {df_metrics.columns}")
+        logging.info(f"df_metrics head: {df_metrics.head()}")
 
-    # Convert Results to a DataFrame
-    df_metrics = pd.DataFrame(records)
-    # Debugging logs
-    logging.info(f"df_metrics columns: {df_metrics.columns}")
-    logging.info(f"df_metrics head: {df_metrics.head()}")
+        if "instagram_account_id" not in df_metrics.columns:
+            logging.error("The column 'instagram_account_id' is missing in the DataFrame.")
+            return
 
-    if "instagram_account_id" not in df_metrics.columns:
-        logging.error("The column 'instagram_account_id' is missing in the DataFrame.")
-        return
-
-    df_metrics['last_update'] = datetime.now().date()
+        df_metrics['last_update'] = datetime.now().date()
+    except Exception as e:
+        logging.error(f"Error: {e}")
 
     # Connect to Snowflake using SQLAlchemy
     engine = create_engine(
