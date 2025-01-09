@@ -261,6 +261,7 @@ async def create_fact_instagram_media_daily_data():
             #    df_media_metrics = pd.DataFrame(all_records)
             #    df_media_metrics['last_update']=datetime.now().date() #adding current date as the table's last update date
             #    logging.info("Combined Media Metrics Data")
+
         return all_records
     except Exception as e:
         logging.error(f"Error: {e}")
@@ -417,6 +418,10 @@ def save_to_snowflake(ti, **kwargs):
     finally:
         session.close()
 
+def run_async_fetch():
+    # Run the async function in the event loop
+    return asyncio.run(create_fact_instagram_media_daily_data())
+
 # endregion
 #######################
 
@@ -441,7 +446,7 @@ with DAG(
 
     fetch_task = PythonOperator(
         task_id="create_fact_instagram_media_daily_data",
-        python_callable=create_fact_instagram_media_daily_data,
+        python_callable=run_async_fetch,
     )
 
     save_task = PythonOperator(
