@@ -218,7 +218,7 @@ def create_fact_instagram_accounts_daily_data(**kwargs):
 
         # upload data to snowflake table mako_data_lake.public.fact_instagram_accounts_daily_data
 
-
+        return records
         # Snowflake connection parameters
     except Exception as e:
         logging.error(f"Error: {e}")
