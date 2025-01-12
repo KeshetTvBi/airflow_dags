@@ -1,5 +1,5 @@
 
-# region fact_instagram_media_daily_data with logging (fetching all facebook pages and their connected instagram account)
+# region fact_instagram_media_daily_data (fetching all facebook pages and their connected instagram account)
 import logging
 
 # Set up logging

@@ -1,8 +1,8 @@
-# region dim_instagram_accounts with logging (fetching all facebook pages and their connected instagram account)
+
+# region dim_instagram_accounts (fetching all facebook pages and their connected instagram account)
 
 import logging
 
-# Set up logging
 # Set up logging
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO,
@@ -260,7 +260,7 @@ def save_to_snowflake(ti, **kwargs):
 default_args = {
     'owner': 'airflow_omer',
     #'start_date':datetime(2024, 1, 7),
-    'email': ['omer.yarchi@keshet-d.com'],
+    #'email': ['omer.yarchi@keshet-d.com'],
     'email_on_failure': False,
     'email_on_retry': False,
     'retries': 0,
