@@ -75,7 +75,7 @@ def CCase(s):
 
 
 def selfJoinPrices(a, b):
-    return a['Buyer'] + a['Brand'] + a['Product'] + a['CPM'] == b['Buyer'] + b['Brand'] + b['Product'] + b['CPM']
+    return a['Buyer'] + a['Brand'] + a['Product'] + a['Cost'] == b['Buyer'] + b['Brand'] + b['Product'] + b['Cost']
 
 
 def extract_price(**kwargs):
@@ -143,7 +143,7 @@ def request_idx(**kwargs):
         url = 'https://terminal.id-x.co.il/rest/api/v1/integration/app/report/campaigns/active'
         log.info(f'Attempting to fetch data from: {url}')
 
-        active_req = requests.get(url, headers={'X-AUTH-TOKEN': Variable.get('idx_key')})
+        active_req = requests.get(url, headers={'X-AUTH-TOKEN': Variable.get('idx_key')}, verify=False)
         active = active_req.json()
 
     except requests.exceptions.HTTPError as http_err:
@@ -170,7 +170,7 @@ def request_idx(**kwargs):
                 log.info(f'Attempting to fetch data from: {url}')
 
                 try:
-                    obj = requests.get(url, headers={'X-AUTH-TOKEN': Variable.get('idx_key')})
+                    obj = requests.get(url, headers={'X-AUTH-TOKEN': Variable.get('idx_key')}, verify=False)
 
                 except requests.exceptions.HTTPError as http_err:
                     log.error(f'HTTP error occurred: {http_err}')
@@ -292,7 +292,7 @@ def transform_data(**kwargs):
         if key not in dupcheck:
             rowDate = datetime.datetime.strptime(row['createDate'], '%Y-%m-%d')
 
-            priceJoinObj = {''.join([x['Buyer'], x['Brand'], x['Product'], x['CPM']]): {
+            priceJoinObj = {''.join([x['Buyer'], x['Brand'], x['Product'], x['Cost']]): {
                 'Price': float(x['Price'].replace('₪', '').replace('-', '0').strip()),
                 'Commission': float(x['Commission'])} for x in pricelist if
                 x['Date'].replace(tzinfo=None) <= rowDate.replace(tzinfo=None) <= x['EndDate'].replace(tzinfo=None)}
@@ -315,13 +315,17 @@ def transform_data(**kwargs):
 
             try:
                 try:
-                    row['price_after_discount'] = row['impressions'] / 1000 * priceJoinObj[
-                        ''.join([row['buyer'], row['blockType'], str(int(row['blockCost']))])]['Price']
-                    row['price_after_commission'] = row['price_after_discount'] - row['price_after_discount'] * \
-                                                    priceJoinObj[
-                                                        ''.join([row['buyer'], row['blockType'], str(int(row['blockCost']))])][
-                                                        'Commission']
+                    if row['blockType'] in ['MAKO_VIDEO_BLITZ', 'MAKO_TAKEOVER_CTV']:
+                        row['price_after_discount'] = priceJoinObj[
+                            ''.join([row['buyer'], row['blockType'], str(int(row['blockCost']))])]['Price']
 
+                    else:
+                        row['price_after_discount'] = row['impressions'] / 1000 * priceJoinObj[
+                            ''.join([row['buyer'], row['blockType'], str(int(row['blockCost']))])]['Price']
+
+                    row['price_after_commission'] = row['price_after_discount'] - row['price_after_discount'] * \
+                                                    priceJoinObj[''.join([row['buyer'], row['blockType'], str(int(row['blockCost']))])][
+                                                        'Commission']
                 except:
                     try:
                         row['price_after_discount'] = row['impressions'] / 1000 * priceJoinObj[
@@ -454,3 +458,4 @@ with DAG(dag_id='idx_v2',
     )
 
     [extract_price_task, domo_schema_task, request_idx_task] >> transform_data_task >> push_to_domo_task >> cleanup_files_task
+    # [extract_price_task, domo_schema_task, request_idx_task] >> transform_data_task
