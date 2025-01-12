@@ -16,6 +16,7 @@ try:
     from airflow import DAG
     from airflow.operators.python import PythonOperator
     from airflow.models import Variable
+    from airflow.hooks.base import BaseHook
     import requests
     import pandas as pd
     import asyncio
@@ -27,29 +28,37 @@ try:
     from sqlalchemy.sql import text
     from slack_sdk import WebClient
     from slack_sdk.errors import SlackApiError
+    import json
     logging.info("All imports were successful.")
 except ImportError as e:
     logging.error(f"Failed to import required module: {e}")
     raise
 # endregion
 
+
 # region Graph API and Snowflake settings
 ACCESS_TOKEN = "EAAMocfT7JiABO6p4y3vpcEOiNISSWUokh0RyxO2Ndg0MYWWRUETVK5nsEXXsJiSnlvW17xZCheYcIE2O6TKDDMnwJwnm7tjbue3pUAVCR0FLi4JBarvEXDVImPrgrxYOixzf4eOG0qg6ZCZCB3saT7VK2pkNf3Va9FD1PiXssLyiXLdZClOH0BPGphqsKwnI"
 # access token expire on february 15 2025. to extend go here https://developers.facebook.com/tools/debug/accesstoken/
 BUSINESS_ACCOUNT_ID = "10154132454588797"  # The Facebook Business Account ID
 # PAGE_ID = "100462013796" #mako#       # Facebook Page ID connected to Instagram Business Account
+
+airflow_conn_id = "mako_snowflake"
+snowflake_conn = BaseHook.get_connection(airflow_conn_id)
+# Parse the "extra" JSON field from the connection
+extra = json.loads(snowflake_conn.extra)
+# Extract credentials
 SNOWFLAKE_CONFIG = {
-    # Snowflake connection parameters
-    "user" : "OmerY",
-    "password" : "Oy!273g4",
-    "account" : "el66449.eu-central-1",
-    "warehouse" : "COMPUTE_WH",
-    "database" : "MAKO_DATA_LAKE",
-    "schema" : "PUBLIC"
+    "user": snowflake_conn.login,
+    "password": snowflake_conn.password,
+    "account": f"{extra['account']}.{extra['region']}",
+    "warehouse": "COMPUTE_WH", #snowflake_conn.extra_dejson.get("warehouse"),
+    "database": "MAKO_DATA_LAKE", #snowflake_conn.schema,
+    "schema": snowflake_conn.schema,
 }
+
 # endregion
 
-#
+
 # Log the start of the script
 logging.info("Script started.")
 
