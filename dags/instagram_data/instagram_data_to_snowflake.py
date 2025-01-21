@@ -537,6 +537,7 @@ async def create_fact_instagram_media_daily_data():
                     )
                     all_records.extend(media_and_insights)
 
+
             # Step 3: Save all results to a DataFrame and CSV
             #try:
             #    df_media_metrics = pd.DataFrame(all_records)
