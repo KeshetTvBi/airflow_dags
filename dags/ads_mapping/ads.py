@@ -43,7 +43,7 @@ remote_bind_port = 1433
 
 
 def send_slack_error_notification(context):
-    slack_token = '****'
+    slack_token = Variable.get('slack_token')
     slack_channel = 'C05UNMWHX2R'
 
     message = f"An error occurred in the Airflow DAG '{context['dag'].dag_id}' on {context['execution_date']}.\nError Message: {context['exception']}"

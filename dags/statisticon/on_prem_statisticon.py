@@ -13,6 +13,7 @@ import os
 import shutil
 import csv
 import json
+from airflow.models import Variable
 
 
 env = os.getenv('ENV')
@@ -24,7 +25,7 @@ default_args = {
 }
 
 def send_slack_error_notification(context):
-    slack_token = '****'
+    slack_token = Variable.get('slack_token')
     slack_channel = 'C05UNMWHX2R'
 
     message = f"An error occurred in the Airflow DAG '{context['dag'].dag_id}' on {context['execution_date']}.\nError Message: {context['exception']}"
