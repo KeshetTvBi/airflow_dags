@@ -411,11 +411,11 @@ def cleanup_files():
         log.error(f'Directory {tmp_path} does not exist')
 
 
-with DAG(dag_id='idx_v2',
+with (DAG(dag_id='idx_v2',
          schedule_interval='50 3 * * *',
          # schedule_interval=None,
          catchup=False,
-         default_args=default_args) as dag:
+         default_args=default_args) as dag):
 
     extract_price_task = PythonOperator(
         task_id='extract_price',
