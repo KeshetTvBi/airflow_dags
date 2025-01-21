@@ -58,6 +58,33 @@ SNOWFLAKE_CONFIG = {
 
 # endregion
 
+#region slack notifications
+def send_slack_error_notification(context):
+    slack_token = Variable.get("slack_token")
+    slack_channel = 'C0897560LDC'
+
+    message = f"@Omer Yarchi An error occurred in the Airflow DAG '{context['dag'].dag_id}' on {context['execution_date']}.\nError Message: {context['exception']}"
+
+    try:
+        client = WebClient(token=slack_token)
+        response = client.chat_postMessage(channel=slack_channel, text=message)
+        assert response['message']['text'] == message
+    except SlackApiError as e:
+        log.info(f"Error sending Slack message: {e.response['error']}")
+
+def send_slack_success_notification(context):
+    slack_token = Variable.get("slack_token")
+    slack_channel = 'C0897560LDC'
+
+    message = f"Successful run Airflow DAG '{context['dag'].dag_id}'"
+
+    try:
+        client = WebClient(token=slack_token)
+        response = client.chat_postMessage(channel=slack_channel, text=message)
+        assert response['message']['text'] == message
+    except SlackApiError as e:
+        log.info(f"Error sending Slack message: {e.response['error']}")
+#endregion
 
 # Log the start of the script
 logging.info("Script started.")
@@ -990,21 +1017,31 @@ with DAG(
     fetch_task_dim_accounts = PythonOperator(
         task_id="create_dim_instagram_accounts",
         python_callable=create_dim_instagram_accounts,
+        on_failure_callback=send_slack_error_notification,
+        on_success_callback=send_slack_success_notification
     )
 
     fetch_task_fact_accounts = PythonOperator(
         task_id="create_fact_instagram_accounts_daily_data",
         python_callable=create_fact_instagram_accounts_daily_data,
+        on_failure_callback=send_slack_error_notification,
+        on_success_callback=send_slack_success_notification
     )
 
     fetch_task_fact_media = PythonOperator(
         task_id="create_fact_instagram_media_daily_data",
         python_callable=run_async_fetch,
+        on_failure_callback=send_slack_error_notification,
+        on_success_callback=send_slack_success_notification
     )
 
     save_task = PythonOperator(
         task_id="save_to_snowflake",
         python_callable=save_to_snowflake,
+        on_failure_callback=send_slack_error_notification,
+        on_success_callback=send_slack_success_notification
     )
 
     [fetch_task_dim_accounts, fetch_task_fact_accounts, fetch_task_fact_media] >> save_task
+
+
