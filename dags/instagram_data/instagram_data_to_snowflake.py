@@ -63,7 +63,7 @@ def send_slack_error_notification(context):
     slack_token = Variable.get("slack_token")
     slack_channel = 'C0897560LDC'
 
-    message = f"@Omer Yarchi An error occurred in the Airflow DAG '{context['dag'].dag_id}' on {context['execution_date']}.\nError Message: {context['exception']}"
+    message = f"@Omer Yarchi An error occurred in the Airflow DAG --TEST-- '{context['dag'].dag_id}' on {context['execution_date']}.\nError Message: {context['exception']}"
 
     try:
         client = WebClient(token=slack_token)
@@ -623,6 +623,7 @@ def save_to_snowflake(ti, **kwargs):
         logging.info(f"dim_accounts(save_to_snowflake function): Data uploaded successfully to {table_staging_dim_accounts}")
     except Exception as e:
         logging.error(f"dim_accounts(save_to_snowflake function): Error uploading data to staging: {e}")
+        raise e
 
     try:
         Session = sessionmaker(bind=engine)
@@ -670,6 +671,7 @@ def save_to_snowflake(ti, **kwargs):
     except Exception as e:
         logging.error(f"dim_accounts(save_to_snowflake function): Error during upsert: {e}")
         session.rollback()
+        raise e
     finally:
         session.close()
 
@@ -698,6 +700,7 @@ def save_to_snowflake(ti, **kwargs):
         session.commit()
     except Exception as e:
         logging.error(f"dim_accounts(save_to_snowflake function): Error dropping staging table: {e}")
+        raise e
         session.rollback()
     finally:
         session.close()
@@ -745,8 +748,9 @@ def save_to_snowflake(ti, **kwargs):
         logging.info(f"Data uploaded successfully to {table_staging_fact_accounts}")
     except Exception as e:
         logging.error(f"fact_accounts(save_to_snowflake function): Error uploading data: {e}")
+        raise e
 
-    # Query to count rows in the staging table
+        # Query to count rows in the staging table
     try:
         Session = sessionmaker(bind=engine)
         session = Session()
@@ -791,6 +795,7 @@ def save_to_snowflake(ti, **kwargs):
         logging.info("fact_accounts(save_to_snowflake function): Upsert operation completed successfully.")
     except Exception as e:
         logging.error(f"fact_accounts(save_to_snowflake function): Error during upsert: {e}")
+        raise e
         session.rollback()
     finally:
         session.close()
@@ -834,6 +839,7 @@ def save_to_snowflake(ti, **kwargs):
         session.commit()
     except Exception as e:
         logging.error(f"fact_accounts(save_to_snowflake function): Error dropping staging table: {e}")
+        raise e
         session.rollback()
     finally:
         session.close()
@@ -881,6 +887,7 @@ def save_to_snowflake(ti, **kwargs):
         logging.info(f"Data uploaded successfully to {table_staging_fact_media}")
     except Exception as e:
         logging.error(f"fact_media(save_to_snowflake function): Error uploading data: {e}")
+        raise e
 
     try:
         Session = sessionmaker(bind=engine)
@@ -941,6 +948,7 @@ def save_to_snowflake(ti, **kwargs):
         logging.info("fact_media(save_to_snowflake function): Upsert operation completed successfully.")
     except Exception as e:
         logging.error(f"fact_media(save_to_snowflake function): Error during upsert: {e}")
+        raise e
         session.rollback()
     finally:
         session.close()
@@ -984,6 +992,7 @@ def save_to_snowflake(ti, **kwargs):
         session.commit()
     except Exception as e:
         logging.error(f"fact_media(save_to_snowflake function): Error dropping staging table: {e}")
+        raise e
         session.rollback()
     finally:
         session.close()
