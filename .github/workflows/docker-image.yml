@@ -29,3 +29,4 @@ jobs:
           context: .
           push: true
           tags: ghcr.io/keshettvbi/airflow_dags:latest
+          platforms: linux/amd64,linux/arm64
