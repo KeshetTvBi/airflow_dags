@@ -63,7 +63,7 @@ def send_slack_error_notification(context):
     slack_token = Variable.get("slack_token")
     slack_channel = 'C0897560LDC'
 
-    message = f"@Omer Yarchi An error occurred in the Airflow DAG'{context['dag'].dag_id}' on {context['execution_date']}.\nError Message: {context['exception']}"
+    message = f"<@U07N2CGU56K> An error occurred in the Airflow DAG'{context['dag'].dag_id}' on {context['execution_date']}.\nError Message: {context['exception']}"
 
     try:
         client = WebClient(token=slack_token)
@@ -76,7 +76,7 @@ def send_slack_success_notification(context):
     slack_token = Variable.get("slack_token")
     slack_channel = 'C0897560LDC'
 
-    message = f"@Omer Yarchi Successful run Airflow DAG '{context['dag'].dag_id}'"
+    message = f"<@U07N2CGU56K> Successful run Airflow DAG '{context['dag'].dag_id}'"
 
     try:
         client = WebClient(token=slack_token)
