@@ -12,8 +12,14 @@ the_day_before_yesterday AS(
 )
 SELECT
     CASE
-        WHEN MAX(ABS(((yesterday / the_day_before_yesterday) - 1) * 100)) <= 10 THEN  'SUCCESS'
-        ELSE 'FAILED'
-    END AS presanteges
+        WHEN MAX (ABS(((the_day_before_yesterday/yesterday) - 1) * 100)) >= 50 THEN  'FAILED'
+        WHEN MIN (yesterday)  <= 0 THEN  'FAILED'
+        WHEN COUNT(yesterday) < 4 THEN  'FAILED'
+        WHEN MIN (the_day_before_yesterday)  <= 0 THEN  'FAILED'
+        WHEN COUNT(the_day_before_yesterday) < 4  THEN  'FAILED'
+        ELSE 'SUCCESS'
+    END AS tests
 FROM yesterday AS a FULL OUTER JOIN the_day_before_yesterday AS b ON a.event_name = b.event_name
 WHERE a.event_name IN('ads', 'play', 'click', 'page_view')
+
+

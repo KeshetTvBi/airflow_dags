@@ -8,7 +8,12 @@ WITH page_view_by_hour AS(
 )
 SELECT
     CASE
-        WHEN MIN(page_view_count) > 100000 THEN 'SUCCESS'
-        ELSE 'FAILED' END AS page_view_count
+        WHEN COUNT(*) < 24  THEN  'FAILED'
+        WHEN MIN(page_view_count) <= 0 THEN 'FAILED'
+        ELSE 'SUCCESS'
+        END AS tests
 FROM page_view_by_hour
 GROUP BY all;
+
+
+

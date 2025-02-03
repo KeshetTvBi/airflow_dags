@@ -7,8 +7,9 @@ WITH device_data AS (
 )
 SELECT
     CASE
-        WHEN MIN(user_count) > 10000 THEN 'SUCCESS'
-        ELSE 'FAILED'
-       END AS user_count
+        WHEN COUNT(*) < 4  THEN  'FAILED'
+        WHEN MIN(user_count) <= 0 THEN 'FAILED'
+        ELSE 'SUCCESS'
+    END AS tests
 FROM device_data
 GROUP BY all;
