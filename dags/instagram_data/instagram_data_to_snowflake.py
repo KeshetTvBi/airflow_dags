@@ -1,4 +1,7 @@
 
+#https://developers.facebook.com/docs/instagram-platform/reference/instagram-media/insights
+#https://developers.facebook.com/docs/instagram-platform/reference/instagram-media/insights
+
 import logging
 
 # Set up logging
