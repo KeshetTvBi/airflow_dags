@@ -373,7 +373,8 @@ REELS_METRICS = [
     "reach",
     "saved",
     "shares",
-    "total_interactions"
+    "total_interactions",
+    "views "
 ]
 
 POST_METRICS = [
@@ -385,7 +386,8 @@ POST_METRICS = [
     "profile_activity",
     "profile_visits",
     "shares",
-    "total_interactions"
+    "total_interactions",
+    "views "
 ]
 
 STORY_METRICS = [
@@ -393,7 +395,8 @@ STORY_METRICS = [
     "reach",
     "replies",
     "shares",
-    "total_interactions"
+    "total_interactions",
+    "views "
 ]
 
 # Fetch JSON response from a URL asynchronously
@@ -936,10 +939,11 @@ def save_to_snowflake(ti, **kwargs):
             ig_reels_aggregated_all_plays_count = source.ig_reels_aggregated_all_plays_count,
             ig_reels_avg_watch_time = source.ig_reels_avg_watch_time,
             ig_reels_video_view_total_time = source.ig_reels_video_view_total_time,
-            last_update = source.last_update
+            last_update = source.last_update,
+            views = source.views 
     WHEN NOT MATCHED THEN
-        INSERT (instagram_account_id, media_id, date_posted, title, media_type, permalink, thumbnail_url, impressions, reach, saved, comments, likes, profile_activity, profile_visits, shares, total_interactions, plays, ig_reels_aggregated_all_plays_count, ig_reels_avg_watch_time, ig_reels_video_view_total_time, last_update)
-        VALUES (source.instagram_account_id, source.media_id, source.date_posted, source.title, source.media_type, source.permalink, source.thumbnail_url, source.impressions, source.reach, source.saved, source.comments, source.likes, source.profile_activity, source.profile_visits, source.shares, source.total_interactions, source.plays, source.ig_reels_aggregated_all_plays_count, source.ig_reels_avg_watch_time, source.ig_reels_video_view_total_time, source.last_update);
+        INSERT (instagram_account_id, media_id, date_posted, title, media_type, permalink, thumbnail_url, impressions, reach, saved, comments, likes, profile_activity, profile_visits, shares, total_interactions, plays, ig_reels_aggregated_all_plays_count, ig_reels_avg_watch_time, ig_reels_video_view_total_time, last_update, views )
+        VALUES (source.instagram_account_id, source.media_id, source.date_posted, source.title, source.media_type, source.permalink, source.thumbnail_url, source.impressions, source.reach, source.saved, source.comments, source.likes, source.profile_activity, source.profile_visits, source.shares, source.total_interactions, source.plays, source.ig_reels_aggregated_all_plays_count, source.ig_reels_avg_watch_time, source.ig_reels_video_view_total_time, source.last_update, source.views);
     """)
 
     try:
