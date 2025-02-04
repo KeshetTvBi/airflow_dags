@@ -32,10 +32,10 @@ default_args = {
 SNOWFLAKE_CONN_ID = 'mako_snowflake'
 SNOWFLAKE_SQL_DIR = os.path.join(os.path.dirname(__file__), 'snowflake_sql_queries')  # Directory for SQL files
 
-username = Variable.get('domo_user')
-password = Variable.get('domo_password')
-api_domo_username =  Variable.get('api_domo_username')
-api_domo_password = Variable.get('api_domo_password')
+domo_user = Variable.get('domo_user')
+domo_password = Variable.get('domo_password')
+domoKey =  Variable.get('domoKey')
+domoSecret = Variable.get('domoSecret')
 
 auth_url_keshet_tv = "https://keshet-tv.domo.com/api/content/v2/authentication"
 search_url = "https://keshet-tv.domo.com/api/data/ui/v3/datasources/search"
@@ -74,7 +74,7 @@ def make_request(method, url, headers=None, payload=None, auth=None):
         url (str): URL for the request.
         headers (dict, optional): HTTP headers for the request.
         payload (dict or str, optional): Data to send in the request body (for POST).
-        auth (tuple, optional): Basic authentication credentials (username, password).
+        auth (tuple, optional): Basic authentication credentials (domo_user, domo_password).
 
     Returns:
         response: The response object from the request.
@@ -206,8 +206,8 @@ def validate_domo_dataset_running(timezone_name="Asia/Jerusalem", **kwargs ):
     log.info("Authenticating to keshet-tv.domo.com")
     auth_payload = json.dumps({
                 "method": "password",
-                "emailAddress": username,
-                "password": password
+                "emailAddress": domo_user,
+                "password": domo_password
             })
     headers = {'Content-Type': 'application/json'}
 
@@ -282,7 +282,7 @@ def validate_domo_dashboards(**kwargs):
     response = make_request(
         method="GET",
         url=auto_url_domo,
-        auth=(api_domo_username, api_domo_password)
+        auth=(domoKey, domoSecret)
     )
     token = response.json().get('access_token')
     log.info(f"Session Token: {token}")
