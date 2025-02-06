@@ -312,7 +312,7 @@ with ((DAG(
         'daily_alerts',
         default_args = default_args,
         description = "Run multiple Snowflake data test queries using PythonOperator",
-        schedule_interval = None,
+        schedule_interval = '10 7 * * *',
         catchup = False
 )) as dag):
     snowflake_test = PythonOperator(
