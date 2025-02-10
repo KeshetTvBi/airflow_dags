@@ -1035,21 +1035,21 @@ with DAG(
         task_id="create_dim_instagram_accounts",
         python_callable=create_dim_instagram_accounts,
         on_failure_callback=send_slack_error_notification,
-        on_success_callback=send_slack_success_notification
+        #on_success_callback=send_slack_success_notification
     )
 
     fetch_task_fact_accounts = PythonOperator(
         task_id="create_fact_instagram_accounts_daily_data",
         python_callable=create_fact_instagram_accounts_daily_data,
         on_failure_callback=send_slack_error_notification,
-        on_success_callback=send_slack_success_notification
+        #on_success_callback=send_slack_success_notification
     )
 
     fetch_task_fact_media = PythonOperator(
         task_id="create_fact_instagram_media_daily_data",
         python_callable=run_async_fetch,
         on_failure_callback=send_slack_error_notification,
-        on_success_callback=send_slack_success_notification
+        #on_success_callback=send_slack_success_notification
     )
 
     save_task = PythonOperator(
