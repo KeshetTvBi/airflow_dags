@@ -40,8 +40,7 @@ except ImportError as e:
 
 
 # region Graph API and Snowflake settings
-ACCESS_TOKEN = 'EAAMocfT7JiABOZC4JdtvdgzrjRNJ84ZAwiefz4CIaNVwXncI8QKN2ZBslt5m9KCx988ho9CFfx5aOVRs9qZBBWeSSb9PlZB7tm8iqKksRhevlVaQbk9F1NxgiFZBja4FdK5MZCBOaMxCIZA2svoNZCEW5ufZB1J4BsNXtNZA2F3ltzIvIQusqJvy7mVzIcs6ZCK3x6Eh'
-# old "EAAMocfT7JiABO6p4y3vpcEOiNISSWUokh0RyxO2Ndg0MYWWRUETVK5nsEXXsJiSnlvW17xZCheYcIE2O6TKDDMnwJwnm7tjbue3pUAVCR0FLi4JBarvEXDVImPrgrxYOixzf4eOG0qg6ZCZCB3saT7VK2pkNf3Va9FD1PiXssLyiXLdZClOH0BPGphqsKwnI"
+ACCESS_TOKEN = 'EAAMocfT7JiABOyva52WpdZCZA41er1msE3EuBxBLeosyQ0aKZBl01KHU9c5lQQSvDd0QtA7ts8Bd3QDarbFb0hdlHFR01MmmYjnAFsYZBdXtyPQQfL7BPmYQOENYjWOJ0kZCVqU1ZA9ZBq6XEaWE5ZCRWSvVRlVCnUW5f1kQBmJfEfCRlECmDCtxX6fVwzZC2d3ox'
 # access token expire on april 10 2025. to extend go here https://developers.facebook.com/tools/debug/accesstoken/
 BUSINESS_ACCOUNT_ID = "10154132454588797"  # The Facebook Business Account ID
 # PAGE_ID = "100462013796" #mako#       # Facebook Page ID connected to Instagram Business Account
@@ -440,9 +439,12 @@ async def fetch_media(session, instagram_account_id, start_date, end_date):
         "access_token": ACCESS_TOKEN
     }
 
-    while url:
-        data = await fetch_json(session, url, params)
+    max_pages = 75  # Set a limit to avoid infinite loops
+    page_count = 0
 
+    while url and page_count < max_pages:
+        data = await fetch_json(session, url, params)
+        page_count += 1  # Increment counter
         if "error" in data:
             logging.error(f"Error fetching media: {data['error']}")
             break
