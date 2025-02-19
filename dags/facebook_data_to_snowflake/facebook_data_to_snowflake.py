@@ -138,7 +138,7 @@ def create_dim_facebook_accounts():
         df_dim_pages['last_update'] = datetime.now().date()
 
         # Save to CSV
-        df_dim_pages.to_csv(r"C:\Users\omer.yarchi\Desktop\Graph API for Facebook Insights\dim_facebook_accounts\dim_facebook_accounts.csv", index=False, encoding="utf-8-sig")
+        #df_dim_pages.to_csv(r"C:\Users\omer.yarchi\Desktop\Graph API for Facebook Insights\dim_facebook_accounts\dim_facebook_accounts.csv", index=False, encoding="utf-8-sig")
 
         return unique_pages_dim_accounts  # Return the final dictionary
 
@@ -232,7 +232,7 @@ async def create_fact_facebook_accounts_daily_data():
         all_pages = user_pages + business_pages  # Merge results
 
         # Set the date range. cant be more than 90 days
-        start_date = (datetime.now() - timedelta(days=510)).strftime("%Y-%m-%dT%H:%M:%S")
+        start_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%S")
         end_date = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
         # Fetch insights for all pages concurrently
@@ -260,11 +260,11 @@ async def create_fact_facebook_accounts_daily_data():
 
 
         # Save to CSV
-        df_pages.to_csv(
-            r"C:\Users\omer.yarchi\Desktop\Graph API for Facebook Insights\fact_facebook_accounts_daily_data\fact_facebook_accounts_daily_data.csv",
-            index=False, encoding='utf-8-sig')
+        #df_pages.to_csv(
+        #    r"C:\Users\omer.yarchi\Desktop\Graph API for Facebook Insights\fact_facebook_accounts_daily_data\fact_facebook_accounts_daily_data.csv",
+        #    index=False, encoding='utf-8-sig')
 
-        return fact_page_insights
+    return fact_page_insights
 
 
 
@@ -459,7 +459,7 @@ async def create_fact_facebook_media_daily_data():
 
 
         # Save to CSV
-        df_posts.to_csv(r"C:\Users\omer.yarchi\Desktop\Graph API for Facebook Insights\fact_facebook_posts_daily_data\fact_facebook_posts_daily_data.csv", index=False, encoding='utf-8-sig')
+        #df_posts.to_csv(r"C:\Users\omer.yarchi\Desktop\Graph API for Facebook Insights\fact_facebook_posts_daily_data\fact_facebook_posts_daily_data.csv", index=False, encoding='utf-8-sig')
         return post_insights_dict
 #endregion
 #region save to snowflake
@@ -475,7 +475,7 @@ def save_to_snowflake_facebook(ti, **kwargs):
     # Pull `unique_pages` from XCom
     unique_pages_dim_accounts = ti.xcom_pull(task_ids="create_dim_facebook_accounts")
     if not unique_pages_dim_accounts:
-        logging.error("dim_accounts(save_to_snowflake function): No data found in XCom for `unique_pages`.")
+        logging.error("dim_accounts(save_to_snowflake function): No data found in XCom for `unique_pages_dim_accounts`.")
         raise ValueError("dim_accounts(save_to_snowflake function): No data found in XCom.")
 
     # Convert Results to a DataFrame
@@ -600,7 +600,7 @@ def save_to_snowflake_facebook(ti, **kwargs):
         # Pull `records` from XCom
         fact_page_insights = ti.xcom_pull(task_ids="create_fact_facebook_accounts_daily_data")
         if not fact_page_insights:
-            logging.error("fact_accounts(save_to_snowflake function): No data found in XCom for `records`.")
+            logging.error("fact_accounts(save_to_snowflake function): No data found in XCom for `fact_page_insights`.")
             raise ValueError("fact_accounts(save_to_snowflake function): No data found in XCom.")
 
         # Convert Results to a DataFrame
@@ -613,6 +613,7 @@ def save_to_snowflake_facebook(ti, **kwargs):
             logging.error("fact_accounts(save_to_snowflake function): The column 'facebook_account_id' is missing in the DataFrame.")
             return
 
+        df_metrics.dropna(subset=["facebook_account_id"], inplace=True)
         df_metrics['last_update'] = datetime.now().date()
     except Exception as e:
         logging.error(f"Error: {e}")
@@ -718,7 +719,7 @@ def save_to_snowflake_facebook(ti, **kwargs):
         # Update table_last_update to the current date
         update_table_last_update_query = text(f"""
         UPDATE {table_fact_accounts}
-        SET table_last_update = :current_date
+        SET last_update = :current_date
         """)
         session.execute(update_table_last_update_query, {"current_date": datetime.now().date()})
         session.commit()
@@ -750,7 +751,7 @@ def save_to_snowflake_facebook(ti, **kwargs):
         # Pull `all_records` from XCom
         post_insights_dict = ti.xcom_pull(task_ids="create_fact_facebook_media_daily_data")
         if not post_insights_dict:
-            logging.error("fact_media(save_to_snowflake function): No data found in XCom for `all_records`.")
+            logging.error("fact_media(save_to_snowflake function): No data found in XCom for `post_insights_dict`.")
             raise ValueError("fact_media(save_to_snowflake function): No data found in XCom.")
 
         # Convert Results to a DataFrame
@@ -882,7 +883,7 @@ def save_to_snowflake_facebook(ti, **kwargs):
         # Update table_last_update to the current date
         update_table_last_update_query = text(f"""
         UPDATE {table_fact_media}
-        SET table_last_update = :current_date
+        SET last_update = :current_date
         """)
         session.execute(update_table_last_update_query, {"current_date": datetime.now().date()})
         session.commit()
@@ -936,7 +937,7 @@ with DAG(
         dag_id="facebook_data_to_snowflake",
         default_args=default_args,
         description="Fetch Facebook accounts and media data and upload to Snowflake",
-        schedule_interval="0 15 * * *",  # Run daily at 17:00
+        schedule_interval="0 16 * * *",  # Run daily at 18:00 (israel time)
         start_date=datetime(2025, 1, 7),
         catchup=False,
 ) as dag:
@@ -957,7 +958,7 @@ with DAG(
 
     fetch_task_fact_media = PythonOperator(
         task_id="create_fact_facebook_media_daily_data",
-        python_callable=run_async_fetch_pages,
+        python_callable=run_async_fetch_posts,
         on_failure_callback=send_slack_error_notification,
         #on_success_callback=send_slack_success_notification
     )
